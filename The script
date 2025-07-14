@@ -34,17 +34,6 @@ local rangeBox
 local clickedTracks = {}
 local tracksStartedInRange = {}
 
--- 🔔 Notification
-local function notify(text)
-	pcall(function()
-		StarterGui:SetCore("SendNotification", {
-			Title = "Auto Block",
-			Text = text,
-			Duration = 1.5,
-		})
-	end)
-end
-
 -- ✅ Click the Block ImageButton (mobile-safe)
 local function clickBlockButton()
 	local gui = localPlayer:FindFirstChild("PlayerGui")
