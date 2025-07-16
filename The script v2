@@ -1,0 +1,303 @@
+-- [ Services ]
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+
+local localPlayer = Players.LocalPlayer
+
+-- [ Animation IDs ]
+local animationIds = {
+    ["126830014841198"] = true, ["126355327951215"] = true, ["121086746534252"] = true,
+    ["18885909645"] = true, ["98456918873918"] = true, ["105458270463374"] = true,
+    ["83829782357897"] = true, ["125403313786645"] = true, ["118298475669935"] = true,
+    ["82113744478546"] = true, ["70371667919898"] = true, ["99135633258223"] = true,
+    ["97167027849946"] = true, ["109230267448394"] = true, ["139835501033932"] = true,
+    ["126896426760253"] = true,
+}
+
+-- [ Variables ]
+local toggleOn = false
+local strictRangeOn = false
+local detectionRange = 18
+local screenGui, toggleButton, strictButton, rangeBox
+local clickedTracks = {}
+
+-- [ Notifications ]
+local function notify(text)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", { Title = "Auto Block", Text = text, Duration = 1.5 })
+    end)
+end
+
+-- [ Click Block Button ]
+local function clickBlockButton()
+    local gui = localPlayer:FindFirstChild("PlayerGui")
+    if not gui then return end
+    local mainUI = gui:FindFirstChild("MainUI")
+    local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+    local blockButton = container and container:FindFirstChild("Block")
+    if blockButton and blockButton:IsA("ImageButton") and blockButton.Visible then
+        if blockButton.BackgroundTransparency == 0 then return end
+        for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do
+            pcall(function() conn:Fire() end)
+        end
+        pcall(function() blockButton:Activate() end)
+    end
+end
+
+-- [ Facing 90° ]
+local function isFacing(localRoot, targetRoot)
+    if not localRoot or not targetRoot then return false end
+    local directionToPlayer = (localRoot.Position - targetRoot.Position).Unit
+    local facingDirection = targetRoot.CFrame.LookVector
+    return facingDirection:Dot(directionToPlayer) > 0
+end
+
+-- [ Saved Toggles ]
+local function getBoolFlag(name)
+    local flag = localPlayer:FindFirstChild(name)
+    if not flag then
+        flag = Instance.new("BoolValue")
+        flag.Name = name
+        flag.Value = false
+        flag.Parent = localPlayer
+    end
+    return flag
+end
+
+local function getNumberFlag(name)
+    local flag = localPlayer:FindFirstChild(name)
+    if not flag then
+        flag = Instance.new("NumberValue")
+        flag.Name = name
+        flag.Value = 18
+        flag.Parent = localPlayer
+    end
+    return flag
+end
+
+-- [ GUI ]
+local function createToggleGui()
+    if screenGui then screenGui:Destroy() end
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "BlockAutoToggleGui"
+    screenGui.ResetOnSpawn = true
+    screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+    toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2.new(0, 130, 0, 30)
+    toggleButton.Position = UDim2.new(0, 10, 0, 10)
+    toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    toggleButton.TextColor3 = Color3.new(1, 1, 1)
+    toggleButton.Parent = screenGui
+
+    strictButton = Instance.new("TextButton")
+    strictButton.Size = UDim2.new(0, 180, 0, 30)
+    strictButton.Position = UDim2.new(0, 10, 0, 50)
+    strictButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    strictButton.TextColor3 = Color3.new(1, 1, 1)
+    strictButton.Parent = screenGui
+
+    rangeBox = Instance.new("TextBox")
+    rangeBox.Size = UDim2.new(0, 50, 0, 30)
+    rangeBox.Position = UDim2.new(0, 10, 0, 90)
+    rangeBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    rangeBox.TextColor3 = Color3.new(1, 1, 1)
+    rangeBox.ClearTextOnFocus = false
+    rangeBox.Parent = screenGui
+
+    local toggleFlag = getBoolFlag("AutoBlockToggle")
+    local strictFlag = getBoolFlag("AutoBlockStrictRange")
+    local rangeFlag = getNumberFlag("AutoBlockRange")
+
+    toggleOn = toggleFlag.Value
+    strictRangeOn = strictFlag.Value
+    detectionRange = rangeFlag.Value
+    rangeBox.Text = tostring(detectionRange)
+
+    local function updateButtons()
+        toggleButton.Text = toggleOn and "Auto Block: ON" or "Auto Block: OFF"
+        toggleButton.BackgroundColor3 = toggleOn and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+        strictButton.Text = strictRangeOn and "Strict Range Check: ON" or "Strict Range Check: OFF"
+        strictButton.BackgroundColor3 = strictRangeOn and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end
+
+    updateButtons()
+
+    toggleButton.MouseButton1Click:Connect(function()
+        toggleOn = not toggleOn
+        toggleFlag.Value = toggleOn
+        updateButtons()
+    end)
+
+    strictButton.MouseButton1Click:Connect(function()
+        strictRangeOn = not strictRangeOn
+        strictFlag.Value = strictRangeOn
+        updateButtons()
+    end)
+
+    rangeBox.FocusLost:Connect(function()
+        local num = tonumber(rangeBox.Text)
+        if num then
+            detectionRange = math.clamp(num, 1, 1000)
+            rangeFlag.Value = detectionRange
+            rangeBox.Text = tostring(detectionRange)
+        else
+            rangeBox.Text = tostring(detectionRange)
+        end
+    end)
+
+    -- === FAKE BLOCK UI ===
+    local fakeBlockToggle = Instance.new("TextButton")
+    fakeBlockToggle.Size = UDim2.new(0, 130, 0, 30)
+    fakeBlockToggle.Position = UDim2.new(0, 10, 0, 130)
+    fakeBlockToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    fakeBlockToggle.TextColor3 = Color3.new(1, 1, 1)
+    fakeBlockToggle.Text = "Fake Block: OFF"
+    fakeBlockToggle.Parent = screenGui
+
+    local modeButton = Instance.new("TextButton")
+    modeButton.Size = UDim2.new(0, 130, 0, 30)
+    modeButton.Position = UDim2.new(0, 10, 0, 170)
+    modeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    modeButton.TextColor3 = Color3.new(1, 1, 1)
+    modeButton.Text = "Mode: Normal"
+    modeButton.Visible = false
+    modeButton.Parent = screenGui
+
+    local fakeBlockOn = false
+    local currentMode = "Normal"
+
+    local fakeBlockButton = Instance.new("TextButton")
+    fakeBlockButton.Size = UDim2.new(0, 50, 0, 50)
+    fakeBlockButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    fakeBlockButton.TextColor3 = Color3.new(1, 1, 1)
+    fakeBlockButton.Text = "Fake Block"
+    fakeBlockButton.Visible = false
+    fakeBlockButton.Parent = screenGui
+    fakeBlockButton.AnchorPoint = Vector2.new(0.5, 0.5)
+    fakeBlockButton.Position = UDim2.new(0.5, 0, 0.7, 0)
+
+    local dragging = false
+    local dragInput, dragStart, startPos
+    local function updateInput(input)
+        local delta = input.Position - dragStart
+        fakeBlockButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                                             startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    fakeBlockButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = fakeBlockButton.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    fakeBlockButton.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            updateInput(input)
+        end
+    end)
+
+    local animations = {
+        Normal = "rbxassetid://72722244508749",
+        ["M3&4"] = "rbxassetid://96959123077498"
+    }
+
+    local function playFakeBlockAnimation()
+        local char = localPlayer.Character
+        if not char then return end
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+        local anim = Instance.new("Animation")
+        anim.AnimationId = animations[currentMode]
+        humanoid:LoadAnimation(anim):Play()
+    end
+
+    fakeBlockToggle.MouseButton1Click:Connect(function()
+        fakeBlockOn = not fakeBlockOn
+        fakeBlockToggle.Text = fakeBlockOn and "Fake Block: ON" or "Fake Block: OFF"
+        fakeBlockToggle.BackgroundColor3 = fakeBlockOn and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+        modeButton.Visible = fakeBlockOn
+        fakeBlockButton.Visible = false
+    end)
+
+    modeButton.MouseButton1Click:Connect(function()
+        if currentMode == "Normal" then
+            currentMode = "M3&4"
+            modeButton.Text = "Mode: M3&4"
+        else
+            currentMode = "Normal"
+            modeButton.Text = "Mode: Normal"
+        end
+    end)
+
+    fakeBlockButton.MouseButton1Click:Connect(function()
+        playFakeBlockAnimation()
+    end)
+
+    RunService.Heartbeat:Connect(function()
+        if not fakeBlockOn then
+            fakeBlockButton.Visible = false
+            return
+        end
+        local gui = localPlayer:FindFirstChild("PlayerGui")
+        local mainUI = gui and gui:FindFirstChild("MainUI")
+        local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+        local blockButton = container and container:FindFirstChild("Block")
+        if blockButton and blockButton:IsA("ImageButton") and blockButton.Visible then
+            fakeBlockButton.Visible = true
+            fakeBlockButton.Size = blockButton.Size
+        else
+            fakeBlockButton.Visible = false
+        end
+    end)
+end
+
+-- [ Respawn GUI ]
+localPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    createToggleGui()
+end)
+if localPlayer.Character then
+    createToggleGui()
+end
+
+-- [ Auto Block Loop ]
+RunService.Heartbeat:Connect(function()
+    if not toggleOn then return end
+    local myChar = localPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if otherPlayer ~= localPlayer and otherPlayer.Character then
+            local root = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if root and humanoid and humanoid.Health > 0 then
+                local dist = (root.Position - myRoot.Position).Magnitude
+                if dist <= detectionRange then
+                    local facing = isFacing(myRoot, root)
+                    for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+                        local anim = track.Animation
+                        local id = anim and anim.AnimationId and string.match(anim.AnimationId, "%d+")
+                        if id and animationIds[id] and not clickedTracks[track] then
+                            if not facing then continue end
+                            clickedTracks[track] = true
+                            notify(otherPlayer.Name .. " started animation " .. id)
+                            clickBlockButton()
+                            task.spawn(function()
+                                track.Stopped:Wait()
+                                clickedTracks[track] = nil
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
