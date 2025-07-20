@@ -1,14 +1,33 @@
--- Auto Block Hub Full Script (All Features Included + New Animation IDs)
-
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
+--// Notification Choice GUI
 local StarterGui = game:GetService("StarterGui")
+local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
 local PlayerGui = localPlayer:WaitForChild("PlayerGui")
 
--- Notification Function
+local NotifGui = Instance.new("ScreenGui", PlayerGui)
+NotifGui.Name = "NotifChoiceGui"
+NotifGui.ResetOnSpawn = false
+
+local Frame = Instance.new("Frame", NotifGui)
+Frame.Size = UDim2.new(0, 200, 0, 100)
+Frame.Position = UDim2.new(0.5, -100, 0.5, -50)
+Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Frame.BorderSizePixel = 0
+
+local EnableButton = Instance.new("TextButton", Frame)
+EnableButton.Text = "Enable Notifications"
+EnableButton.Size = UDim2.new(1, 0, 0.5, 0)
+EnableButton.Position = UDim2.new(0, 0, 0, 0)
+EnableButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+EnableButton.TextColor3 = Color3.new(1, 1, 1)
+
+local DisableButton = Instance.new("TextButton", Frame)
+DisableButton.Text = "Disable Notifications (FPS)"
+DisableButton.Size = UDim2.new(1, 0, 0.5, 0)
+DisableButton.Position = UDim2.new(0, 0, 0.5, 0)
+DisableButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+DisableButton.TextColor3 = Color3.new(1, 1, 1)
+
 local notificationsEnabled = true
 local function notify(text)
     if notificationsEnabled then
@@ -18,12 +37,28 @@ local function notify(text)
     end
 end
 
--- Rayfield GUI Setup
+EnableButton.MouseButton1Click:Connect(function()
+    notificationsEnabled = true
+    NotifGui:Destroy()
+    loadAutoBlock()
+end)
+DisableButton.MouseButton1Click:Connect(function()
+    notificationsEnabled = false
+    NotifGui:Destroy()
+    loadAutoBlock()
+end)
+
+function loadAutoBlock()
+--// Auto Block GUI and Logic
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "Auto Block Hub",
     LoadingTitle = "Auto Block Script",
-    LoadingSubtitle = "Skibidi",
+    LoadingSubtitle = "by Skibidi Shots",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "AutoBlockHub",
@@ -38,7 +73,6 @@ local FakeBlockTab = Window:CreateTab("Fake Block", 4483362458)
 local AutoPunchTab = Window:CreateTab("Auto Punch", 4483362458)
 local CustomAnimationsTab = Window:CreateTab("Custom Animations", 4483362458)
 
--- Variables
 local toggleOn, strictRangeOn, detectionRange, looseFacing = false, false, 18, true
 local autoPunchOn, flingPunchOn = false, false
 local blockCooldown, notificationCooldowns = false, {}
@@ -47,7 +81,6 @@ local customBlockEnabled, customPunchEnabled = false, false
 local flingPower = 10000
 local hiddenfling = false
 
--- GUI Controls
 AutoBlockTab:CreateToggle({ Name = "Auto Block", CurrentValue = false, Callback = function(Value) toggleOn = Value end })
 AutoBlockTab:CreateToggle({ Name = "Strict Range", CurrentValue = false, Callback = function(Value) strictRangeOn = Value end })
 AutoBlockTab:CreateDropdown({ Name = "Facing Mode", Options = {"Loose", "Strict"}, CurrentOption = "Loose", Callback = function(Option) looseFacing = Option == "Loose" end })
@@ -105,7 +138,6 @@ CustomAnimationsTab:CreateToggle({
     Callback = function(Value) customPunchEnabled = Value end
 })
 
--- Animation IDs (with new ones added)
 local animationIds = {
     ["126830014841198"] = true, ["126355327951215"] = true, ["121086746534252"] = true,
     ["18885909645"] = true, ["98456918873918"] = true, ["105458270463374"] = true,
@@ -132,7 +164,6 @@ RunService.Heartbeat:Connect(function()
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
 
-    -- Auto Block
     if toggleOn and not blockCooldown then
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= localPlayer and player.Character then
@@ -157,7 +188,6 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Custom Animations
     if myChar then
         local humanoid = myChar:FindFirstChildOfClass("Humanoid")
         if humanoid then
@@ -168,7 +198,9 @@ RunService.Heartbeat:Connect(function()
                         track:Stop()
                         local anim = Instance.new("Animation")
                         anim.AnimationId = "rbxassetid://" .. customBlockAnimId
-                        humanoid:LoadAnimation(anim):Play()
+                        local loaded = humanoid:LoadAnimation(anim)
+                        loaded:Play()
+                        task.delay(2, function() pcall(function() loaded:Stop() end) end)
                     end)
                 end
                 if customPunchEnabled and id and id == "96959123077498" and customPunchAnimId ~= "" then
@@ -176,14 +208,15 @@ RunService.Heartbeat:Connect(function()
                         track:Stop()
                         local anim = Instance.new("Animation")
                         anim.AnimationId = "rbxassetid://" .. customPunchAnimId
-                        humanoid:LoadAnimation(anim):Play()
+                        local loaded = humanoid:LoadAnimation(anim)
+                        loaded:Play()
+                        task.delay(2, function() pcall(function() loaded:Stop() end) end)
                     end)
                 end
             end
         end
     end
 
-    -- Auto Punch / Fling Punch
     if autoPunchOn then
         local gui = localPlayer:FindFirstChild("PlayerGui")
         local punchCharges = gui and gui:FindFirstChild("MainUI") and gui.MainUI:FindFirstChild("AbilityContainer") and gui.MainUI.AbilityContainer:FindFirstChild("Punch") and gui.MainUI.AbilityContainer.Punch:FindFirstChild("Charges")
@@ -216,3 +249,4 @@ RunService.Heartbeat:Connect(function()
         myRoot.Velocity = myRoot.Velocity * flingPower + Vector3.new(0, flingPower, 0)
     end
 end)
+end
