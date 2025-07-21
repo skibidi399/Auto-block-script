@@ -1,0 +1,121 @@
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/jensonhirst/Orion/main/source')))()
+local Window = OrionLib:MakeWindow({Name = "Triplex | Guest 1337", HidePremium = false, SaveConfig = true, ConfigFolder = "Guest1337AutoBlock"})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+local toggleOn = false
+local autoPunchOn = false
+local detectionRange = 18
+local clickedTracks = {}
+
+local animationIds = {
+    ["126830014841198"] = true, ["126355327951215"] = true, ["121086746534252"] = true,
+    ["18885909645"] = true, ["98456918873918"] = true, ["105458270463374"] = true,
+    ["83829782357897"] = true, ["125403313786645"] = true, ["118298475669935"] = true,
+    ["82113744478546"] = true, ["70371667919898"] = true, ["99135633258223"] = true,
+    ["97167027849946"] = true, ["109230267448394"] = true, ["139835501033932"] = true,
+    ["126896426760253"] = true, ["109667959938617"] = true, ["126681776859538"] = true,
+    ["129976080405072"] = true, ["121293883585738"] = true,
+}
+
+local function clickBlockButton()
+    local gui = localPlayer:FindFirstChild("PlayerGui")
+    if not gui then return end
+    local mainUI = gui:FindFirstChild("MainUI")
+    local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+    local blockButton = container and container:FindFirstChild("Block")
+    if blockButton and blockButton:IsA("ImageButton") and blockButton.Visible then
+        for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do
+            pcall(function() conn:Fire() end)
+        end
+        pcall(function() blockButton:Activate() end)
+    end
+end
+
+local function autoPunch()
+    local myChar = localPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    local gui = localPlayer:FindFirstChild("PlayerGui")
+    local punchButton = gui and gui:FindFirstChild("MainUI") and gui.MainUI:FindFirstChild("AbilityContainer") and gui.MainUI.AbilityContainer:FindFirstChild("Punch")
+    local punchCharges = punchButton and punchButton:FindFirstChild("Charges")
+
+    if punchButton and punchCharges and punchCharges.Text == "1" then
+        for _, conn in ipairs(getconnections(punchButton.MouseButton1Click)) do
+            pcall(function() conn:Fire() end)
+        end
+    end
+end
+
+local MainTab = Window:MakeTab({
+    Name = "Guest1337",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+MainTab:AddToggle({
+    Name = "Auto Block",
+    Default = false,
+    Callback = function(Value)
+        toggleOn = Value
+    end    
+})
+
+MainTab:AddToggle({
+    Name = "Auto Punch",
+    Default = false,
+    Callback = function(Value)
+        autoPunchOn = Value
+    end    
+})
+
+MainTab:AddTextbox({
+    Name = "Detection Range",
+    Default = tostring(detectionRange),
+    TextDisappear = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            detectionRange = math.clamp(num, 5, 50)
+        end
+    end    
+})
+
+RunService.Heartbeat:Connect(function()
+    if not toggleOn and not autoPunchOn then return end
+    local myChar = localPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if otherPlayer ~= localPlayer and otherPlayer.Character then
+            local root = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if root and humanoid and humanoid.Health > 0 then
+                local dist = (root.Position - myRoot.Position).Magnitude
+                if dist <= detectionRange then
+                    for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+                        local anim = track.Animation
+                        local id = anim and anim.AnimationId and string.match(anim.AnimationId, "%d+")
+                        if id and animationIds[id] and not clickedTracks[track] then
+                            clickedTracks[track] = true
+                            if toggleOn then
+                                clickBlockButton()
+                            end
+                            if autoPunchOn then
+                                autoPunch()
+                            end
+                            task.spawn(function()
+                                track.Stopped:Wait()
+                                clickedTracks[track] = nil
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+OrionLib:Init()
