@@ -1,5 +1,5 @@
 local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/jensonhirst/Orion/main/source')))()
-local Window = OrionLib:MakeWindow({Name = "Triplex | Guest 1337", HidePremium = false, SaveConfig = true, ConfigFolder = "Guest1337AutoBlock"})
+local Window = OrionLib:MakeWindow({Name = "credits to triplex for the cool source", HidePremium = false, SaveConfig = true, ConfigFolder = "Guest1337AutoBlock"})
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,7 +7,7 @@ local localPlayer = Players.LocalPlayer
 
 local toggleOn = false
 local autoPunchOn = false
-local detectionRange = 18
+local detectionRange = 15
 local clickedTracks = {}
 
 local animationIds = {
@@ -64,7 +64,7 @@ MainTab:AddToggle({
 })
 
 MainTab:AddToggle({
-    Name = "Auto Punch",
+    Name = "Auto Punch (very late punch, here for decoration lol)",
     Default = false,
     Callback = function(Value)
         autoPunchOn = Value
