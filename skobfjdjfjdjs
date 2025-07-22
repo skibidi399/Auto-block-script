@@ -196,3 +196,5 @@ function loadRayfield()
         end
     end)
 end
+
+loadRayfield()
