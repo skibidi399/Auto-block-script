@@ -1,65 +1,12 @@
---// Notification Choice GUI
-local StarterGui = game:GetService("StarterGui")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+function loadRayfield()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local TweenService = game:GetService("TweenService")
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local lp = Players.LocalPlayer
+    local PlayerGui = lp:WaitForChild("PlayerGui")
 
-local localPlayer = Players.LocalPlayer
-local PlayerGui = localPlayer:WaitForChild("PlayerGui")
-
-local NotifGui = Instance.new("ScreenGui", PlayerGui)
-NotifGui.Name = "NotifChoiceGui"
-NotifGui.ResetOnSpawn = false
-
-local Frame = Instance.new("Frame", NotifGui)
-Frame.Size = UDim2.new(0, 200, 0, 100)
-Frame.Position = UDim2.new(0.5, -100, 0.5, -50)
-Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Frame.BorderSizePixel = 0
-
-local EnableButton = Instance.new("TextButton", Frame)
-EnableButton.Text = "Enable Notifications"
-EnableButton.Size = UDim2.new(1, 0, 0.5, 0)
-EnableButton.Position = UDim2.new(0, 0, 0, 0)
-EnableButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-EnableButton.TextColor3 = Color3.new(1, 1, 1)
-
-local DisableButton = Instance.new("TextButton", Frame)
-DisableButton.Text = "Disable Notifications (FPS)"
-DisableButton.Size = UDim2.new(1, 0, 0.5, 0)
-DisableButton.Position = UDim2.new(0, 0, 0.5, 0)
-DisableButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-DisableButton.TextColor3 = Color3.new(1, 1, 1)
-
-local notificationsEnabled = true
-local function notify(text)
-    if notificationsEnabled then
-        pcall(function()
-            StarterGui:SetCore("SendNotification", {
-                Title = "Auto Block",
-                Text = text,
-                Duration = 1.5
-            })
-        end)
-    end
-end
-
-EnableButton.MouseButton1Click:Connect(function()
-    notificationsEnabled = true
-    NotifGui:Destroy()
-    loadAutoBlock()
-end)
-
-DisableButton.MouseButton1Click:Connect(function()
-    notificationsEnabled = false
-    NotifGui:Destroy()
-    loadAutoBlock()
-end)
-
-function loadAutoBlock()
     local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-
     local Window = Rayfield:CreateWindow({
         Name = "Auto Block Hub",
         LoadingTitle = "Auto Block Script",
@@ -78,8 +25,11 @@ function loadAutoBlock()
     local AutoPunchTab = Window:CreateTab("Auto Punch", 4483362458)
     local CustomAnimationsTab = Window:CreateTab("Custom Animations", 4483362458)
 
-    local toggleOn, strictRangeOn, detectionRange, looseFacing = false, false, 18, true
+    local toggleOn, strictRangeOn, looseFacing = false, false, true
+    local detectionRange = 18
     local autoPunchOn, flingPunchOn = false, false
+    local customBlockEnabled, customPunchEnabled = false, false
+    local customBlockAnimId, customPunchAnimId = "", ""
     local flingPower = 10000
     local hiddenfling = false
 
@@ -106,7 +56,28 @@ function loadAutoBlock()
         Name = "Detection Range",
         PlaceholderText = "18",
         RemoveTextAfterFocusLost = false,
-        Callback = function(Text) detectionRange = tonumber(Text) or detectionRange end
+        Callback = function(Text)
+            detectionRange = tonumber(Text) or detectionRange
+        end
+    })
+
+    FakeBlockTab:CreateToggle({
+        Name = "Load Fake Block",
+        CurrentValue = false,
+        Callback = function(Value)
+            local fakeGui = PlayerGui:FindFirstChild("FakeBlockGui")
+            if Value then
+                if not fakeGui then
+                    loadstring(game:HttpGet("https://pastebin.com/raw/ztnYv27k"))()
+                else
+                    fakeGui.Enabled = true
+                end
+            else
+                if fakeGui then
+                    fakeGui.Enabled = false
+                end
+            end
+        end
     })
 
     AutoPunchTab:CreateToggle({
@@ -129,7 +100,43 @@ function loadAutoBlock()
         Callback = function(Value) flingPower = Value end
     })
 
-    -- Fling Physics Coroutine
+    CustomAnimationsTab:CreateInput({
+        Name = "Custom Block Animation",
+        PlaceholderText = "AnimationId",
+        RemoveTextAfterFocusLost = false,
+        Callback = function(Text) customBlockAnimId = Text end
+    })
+
+    CustomAnimationsTab:CreateToggle({
+        Name = "Enable Custom Block Animation",
+        CurrentValue = false,
+        Callback = function(Value) customBlockEnabled = Value end
+    })
+
+    CustomAnimationsTab:CreateInput({
+        Name = "Custom Punch Animation (does not work on m3/m4 Parries.)",
+        PlaceholderText = "AnimationId",
+        RemoveTextAfterFocusLost = false,
+        Callback = function(Text) customPunchAnimId = Text end
+    })
+
+    CustomAnimationsTab:CreateToggle({
+        Name = "Enable Custom Punch Animation",
+        CurrentValue = false,
+        Callback = function(Value) customPunchEnabled = Value end
+    })
+
+    local function fireRemoteBlock()
+        local args = {"UseActorAbility", "Block"}
+        ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+    end
+
+    local function isFacing(localRoot, targetRoot)
+        local directionToPlayer = (localRoot.Position - targetRoot.Position).Unit
+        local facingDirection = targetRoot.CFrame.LookVector
+        return looseFacing and facingDirection:Dot(directionToPlayer) > -0.3 or facingDirection:Dot(directionToPlayer) > 0
+    end
+
     coroutine.wrap(function()
         local hrp, c, vel, movel = nil, nil, nil, 0.1
         while true do
@@ -137,7 +144,7 @@ function loadAutoBlock()
             if hiddenfling then
                 while hiddenfling and not (c and c.Parent and hrp and hrp.Parent) do
                     RunService.Heartbeat:Wait()
-                    c = localPlayer.Character
+                    c = lp.Character
                     hrp = c and c:FindFirstChild("HumanoidRootPart")
                 end
                 if hiddenfling then
@@ -157,18 +164,17 @@ function loadAutoBlock()
         end
     end)()
 
-    -- Main Loop
     RunService.Heartbeat:Connect(function()
-        local myChar = localPlayer.Character
+        local myChar = lp.Character
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
         if not myRoot then return end
 
         if autoPunchOn then
-            local gui = localPlayer:FindFirstChild("PlayerGui")
+            local gui = lp:FindFirstChild("PlayerGui")
             local punchCharges = gui and gui:FindFirstChild("MainUI") and gui.MainUI:FindFirstChild("AbilityContainer") and gui.MainUI.AbilityContainer:FindFirstChild("Punch") and gui.MainUI.AbilityContainer.Punch:FindFirstChild("Charges")
             if punchCharges and punchCharges.Text == "1" then
                 for _, player in ipairs(Players:GetPlayers()) do
-                    if player ~= localPlayer and player.Character then
+                    if player ~= lp and player.Character then
                         local root = player.Character:FindFirstChild("HumanoidRootPart")
                         if root and (root.Position - myRoot.Position).Magnitude <= 10 then
                             local punchButton = gui.MainUI.AbilityContainer.Punch
@@ -177,14 +183,8 @@ function loadAutoBlock()
                             end
                             if flingPunchOn then
                                 hiddenfling = true
-                                local startTime = tick()
-                                task.spawn(function()
-                                    while hiddenfling and tick() - startTime < 1.5 do
-                                        TweenService:Create(myRoot, TweenInfo.new(0.04, Enum.EasingStyle.Linear), {CFrame = root.CFrame}):Play()
-                                        task.wait(0.04)
-                                    end
-                                end)
-                                task.delay(2.7, function()
+                                TweenService:Create(myRoot, TweenInfo.new(0.04, Enum.EasingStyle.Linear), {CFrame = root.CFrame}):Play()
+                                task.delay(1.5, function()
                                     hiddenfling = false
                                 end)
                             end
