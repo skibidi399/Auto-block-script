@@ -93,8 +93,6 @@ RayfieldButton.MouseButton1Click:Connect(function()
         loadRayfield()
     end)
 
-    function loadRayfield()
-        notify("Rayfield Auto Block Loaded ✅")
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Auto-block-script/refs/heads/main/skobfjdjfjdjs"))()
-    end
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Auto-block-script/refs/heads/main/skobfjdjfjdjs"))()
+    notify("Rayfield Auto Block Loaded ✅")
 end)
