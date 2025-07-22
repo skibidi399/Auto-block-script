@@ -1,25 +1,20 @@
---// Services
+-- Main Auto Block Hub Selector
 local Players = game:GetService("Players")
 local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 local StarterGui = game:GetService("StarterGui")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
 
---// Initial Option GUI
 local OptionGui = Instance.new("ScreenGui", PlayerGui)
 OptionGui.Name = "InitialOptionGui"
 OptionGui.ResetOnSpawn = false
 
 local OptionFrame = Instance.new("Frame", OptionGui)
-OptionFrame.Size = UDim2.new(0, 260, 0, 120)
-OptionFrame.Position = UDim2.new(0.5, -130, 0.5, -60)
+OptionFrame.Size = UDim2.new(0, 260, 0, 140)
+OptionFrame.Position = UDim2.new(0.5, -130, 0.5, -70)
 OptionFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 OptionFrame.BorderSizePixel = 0
 
 local RayfieldButton = Instance.new("TextButton", OptionFrame)
-RayfieldButton.Text = "Rayfield Auto Block (more features but has a lil delay on auto block)"
+RayfieldButton.Text = "Rayfield Auto Block (more features but has a lil delay)"
 RayfieldButton.Size = UDim2.new(1, -20, 0.45, 0)
 RayfieldButton.Position = UDim2.new(0, 10, 0, 10)
 RayfieldButton.BackgroundColor3 = Color3.fromRGB(40, 130, 255)
@@ -38,7 +33,7 @@ OrionButton.TextScaled = true
 
 OrionButton.MouseButton1Click:Connect(function()
     OptionGui:Destroy()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Auto-block-script/main/The%20script%20v3%20(2)"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Auto-block-script/refs/heads/main/The%20script%20v3%20(2)"))()
 end)
 
 RayfieldButton.MouseButton1Click:Connect(function()
@@ -68,31 +63,15 @@ RayfieldButton.MouseButton1Click:Connect(function()
     DisableButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
     DisableButton.TextColor3 = Color3.new(1, 1, 1)
 
-    local notificationsEnabled = true
-    local function notify(text)
-        if notificationsEnabled then
-            pcall(function()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Auto Block",
-                    Text = text,
-                    Duration = 1.5
-                })
-            end)
-        end
-    end
-
     EnableButton.MouseButton1Click:Connect(function()
-        notificationsEnabled = true
         NotifGui:Destroy()
-        loadRayfield()
+        getgenv().autoBlockNotify = true
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/Rayfield_Full.lua"))()
     end)
 
     DisableButton.MouseButton1Click:Connect(function()
-        notificationsEnabled = false
         NotifGui:Destroy()
-        loadRayfield()
+        getgenv().autoBlockNotify = false
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/Rayfield_Full.lua"))()
     end)
-
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Auto-block-script/refs/heads/main/skobfjdjfjdjs"))()
-    notify("Rayfield Auto Block Loaded ✅")
 end)
