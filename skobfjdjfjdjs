@@ -33,6 +33,17 @@ function loadRayfield()
     local flingPower = 10000
     local hiddenfling = false
 
+    local function playCustomAnimation(animId)
+        if not lp.Character then return end
+        local hum = lp.Character:FindFirstChildOfClass("Humanoid")
+        if hum and animId and animId ~= "" then
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://" .. animId
+            local track = hum:LoadAnimation(anim)
+            track:Play()
+        end
+    end
+
     AutoBlockTab:CreateToggle({
         Name = "Auto Block",
         CurrentValue = false,
@@ -129,6 +140,9 @@ function loadRayfield()
     local function fireRemoteBlock()
         local args = {"UseActorAbility", "Block"}
         ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+        if customBlockEnabled then
+            playCustomAnimation(customBlockAnimId)
+        end
     end
 
     local function isFacing(localRoot, targetRoot)
@@ -181,6 +195,9 @@ function loadRayfield()
                             for _, conn in ipairs(getconnections(punchButton.MouseButton1Click)) do
                                 pcall(function() conn:Fire() end)
                             end
+                            if customPunchEnabled then
+                                playCustomAnimation(customPunchAnimId)
+                            end
                             if flingPunchOn then
                                 hiddenfling = true
                                 TweenService:Create(myRoot, TweenInfo.new(0.04, Enum.EasingStyle.Linear), {CFrame = root.CFrame}):Play()
@@ -194,7 +211,56 @@ function loadRayfield()
                 end
             end
         end
+
+        if toggleOn then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= lp and player.Character then
+                    local root = player.Character:FindFirstChild("HumanoidRootPart")
+                    if root and myRoot and (root.Position - myRoot.Position).Magnitude <= detectionRange then
+                        if not strictRangeOn or isFacing(myRoot, root) then
+                            fireRemoteBlock()
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    -- Manual block and punch hooks (custom anims)
+    task.delay(1, function()
+        local gui = lp:FindFirstChild("PlayerGui")
+        if gui and gui:FindFirstChild("MainUI") then
+            local punchBtn = gui.MainUI:FindFirstChild("AbilityContainer") and gui.MainUI.AbilityContainer:FindFirstChild("Punch")
+            if punchBtn then
+                for _, conn in ipairs(getconnections(punchBtn.MouseButton1Click)) do
+                    local oldFunc = conn.Function
+                    conn:Disable()
+                    punchBtn.MouseButton1Click:Connect(function(...)
+                        oldFunc(...)
+                        if customPunchEnabled then
+                            playCustomAnimation(customPunchAnimId)
+                        end
+                    end)
+                end
+            end
+
+            local blockBtn = gui.MainUI.AbilityContainer:FindFirstChild("Block")
+            if blockBtn then
+                for _, conn in ipairs(getconnections(blockBtn.MouseButton1Click)) do
+                    local oldFunc = conn.Function
+                    conn:Disable()
+                    blockBtn.MouseButton1Click:Connect(function(...)
+                        oldFunc(...)
+                        if customBlockEnabled then
+                            playCustomAnimation(customBlockAnimId)
+                        end
+                    end)
+                end
+            end
+        end
     end)
 end
 
+-- Run it
 loadRayfield()
