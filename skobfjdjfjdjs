@@ -33,51 +33,17 @@ function loadRayfield()
     local flingPower = 10000
     local hiddenfling = false
 
-    local function playCustomAnimation(animId)
-        if not lp.Character then return end
-        local hum = lp.Character:FindFirstChildOfClass("Humanoid")
-        if hum and animId and animId ~= "" then
-            local anim = Instance.new("Animation")
-            anim.AnimationId = "rbxassetid://" .. animId
-            local track = hum:LoadAnimation(anim)
-            track:Play()
-        end
-    end
-
-    AutoBlockTab:CreateToggle({
-        Name = "Auto Block",
-        CurrentValue = false,
-        Callback = function(Value) toggleOn = Value end
-    })
-
-    AutoBlockTab:CreateToggle({
-        Name = "Strict Range",
-        CurrentValue = false,
-        Callback = function(Value) strictRangeOn = Value end
-    })
-
-    AutoBlockTab:CreateDropdown({
-        Name = "Facing Mode",
-        Options = {"Loose", "Strict"},
-        CurrentOption = "Loose",
-        Callback = function(Option) looseFacing = Option == "Loose" end
-    })
-
-    AutoBlockTab:CreateInput({
-        Name = "Detection Range",
-        PlaceholderText = "18",
-        RemoveTextAfterFocusLost = false,
-        Callback = function(Text)
-            detectionRange = tonumber(Text) or detectionRange
-        end
-    })
+    AutoBlockTab:CreateToggle({Name = "Auto Block", CurrentValue = false, Callback = function(v) toggleOn = v end})
+    AutoBlockTab:CreateToggle({Name = "Strict Range", CurrentValue = false, Callback = function(v) strictRangeOn = v end})
+    AutoBlockTab:CreateDropdown({Name = "Facing Mode", Options = {"Loose", "Strict"}, CurrentOption = "Loose", Callback = function(opt) looseFacing = opt == "Loose" end})
+    AutoBlockTab:CreateInput({Name = "Detection Range", PlaceholderText = "18", RemoveTextAfterFocusLost = false, Callback = function(text) detectionRange = tonumber(text) or detectionRange end})
 
     FakeBlockTab:CreateToggle({
         Name = "Load Fake Block",
         CurrentValue = false,
-        Callback = function(Value)
+        Callback = function(v)
             local fakeGui = PlayerGui:FindFirstChild("FakeBlockGui")
-            if Value then
+            if v then
                 if not fakeGui then
                     loadstring(game:HttpGet("https://pastebin.com/raw/ztnYv27k"))()
                 else
@@ -91,64 +57,24 @@ function loadRayfield()
         end
     })
 
-    AutoPunchTab:CreateToggle({
-        Name = "Auto Punch",
-        CurrentValue = false,
-        Callback = function(Value) autoPunchOn = Value end
-    })
+    AutoPunchTab:CreateToggle({Name = "Auto Punch", CurrentValue = false, Callback = function(v) autoPunchOn = v end})
+    AutoPunchTab:CreateToggle({Name = "Fling Punch", CurrentValue = false, Callback = function(v) flingPunchOn = v end})
+    AutoPunchTab:CreateSlider({Name = "Fling Power", Range = {5000, 50000}, Increment = 1000, CurrentValue = 10000, Callback = function(v) flingPower = v end})
 
-    AutoPunchTab:CreateToggle({
-        Name = "Fling Punch",
-        CurrentValue = false,
-        Callback = function(Value) flingPunchOn = Value end
-    })
-
-    AutoPunchTab:CreateSlider({
-        Name = "Fling Power",
-        Range = {5000, 50000},
-        Increment = 1000,
-        CurrentValue = 10000,
-        Callback = function(Value) flingPower = Value end
-    })
-
-    CustomAnimationsTab:CreateInput({
-        Name = "Custom Block Animation",
-        PlaceholderText = "AnimationId",
-        RemoveTextAfterFocusLost = false,
-        Callback = function(Text) customBlockAnimId = Text end
-    })
-
-    CustomAnimationsTab:CreateToggle({
-        Name = "Enable Custom Block Animation",
-        CurrentValue = false,
-        Callback = function(Value) customBlockEnabled = Value end
-    })
-
-    CustomAnimationsTab:CreateInput({
-        Name = "Custom Punch Animation (does not work on m3/m4 Parries.)",
-        PlaceholderText = "AnimationId",
-        RemoveTextAfterFocusLost = false,
-        Callback = function(Text) customPunchAnimId = Text end
-    })
-
-    CustomAnimationsTab:CreateToggle({
-        Name = "Enable Custom Punch Animation",
-        CurrentValue = false,
-        Callback = function(Value) customPunchEnabled = Value end
-    })
+    CustomAnimationsTab:CreateInput({Name = "Custom Block Animation", PlaceholderText = "AnimationId", RemoveTextAfterFocusLost = false, Callback = function(txt) customBlockAnimId = txt end})
+    CustomAnimationsTab:CreateToggle({Name = "Enable Custom Block Animation", CurrentValue = false, Callback = function(v) customBlockEnabled = v end})
+    CustomAnimationsTab:CreateInput({Name = "Custom Punch Animation (not for m3/m4 parry)", PlaceholderText = "AnimationId", RemoveTextAfterFocusLost = false, Callback = function(txt) customPunchAnimId = txt end})
+    CustomAnimationsTab:CreateToggle({Name = "Enable Custom Punch Animation", CurrentValue = false, Callback = function(v) customPunchEnabled = v end})
 
     local function fireRemoteBlock()
         local args = {"UseActorAbility", "Block"}
         ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-        if customBlockEnabled then
-            playCustomAnimation(customBlockAnimId)
-        end
     end
 
     local function isFacing(localRoot, targetRoot)
-        local directionToPlayer = (localRoot.Position - targetRoot.Position).Unit
-        local facingDirection = targetRoot.CFrame.LookVector
-        return looseFacing and facingDirection:Dot(directionToPlayer) > -0.3 or facingDirection:Dot(directionToPlayer) > 0
+        local dirTo = (localRoot.Position - targetRoot.Position).Unit
+        local facing = targetRoot.CFrame.LookVector
+        return looseFacing and facing:Dot(dirTo) > -0.3 or facing:Dot(dirTo) > 0
     end
 
     coroutine.wrap(function()
@@ -165,9 +91,7 @@ function loadRayfield()
                     vel = hrp.Velocity
                     hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
                     RunService.RenderStepped:Wait()
-                    if c and c.Parent and hrp and hrp.Parent then
-                        hrp.Velocity = vel
-                    end
+                    if c and c.Parent and hrp and hrp.Parent then hrp.Velocity = vel end
                     RunService.Stepped:Wait()
                     if c and c.Parent and hrp and hrp.Parent then
                         hrp.Velocity = vel + Vector3.new(0, movel, 0)
@@ -185,25 +109,19 @@ function loadRayfield()
 
         if autoPunchOn then
             local gui = lp:FindFirstChild("PlayerGui")
-            local punchCharges = gui and gui:FindFirstChild("MainUI") and gui.MainUI:FindFirstChild("AbilityContainer") and gui.MainUI.AbilityContainer:FindFirstChild("Punch") and gui.MainUI.AbilityContainer.Punch:FindFirstChild("Charges")
-            if punchCharges and punchCharges.Text == "1" then
-                for _, player in ipairs(Players:GetPlayers()) do
-                    if player ~= lp and player.Character then
-                        local root = player.Character:FindFirstChild("HumanoidRootPart")
+            local punch = gui and gui:FindFirstChild("MainUI") and gui.MainUI:FindFirstChild("AbilityContainer") and gui.MainUI.AbilityContainer:FindFirstChild("Punch")
+            if punch and punch:FindFirstChild("Charges") and punch.Charges.Text == "1" then
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr ~= lp and plr.Character then
+                        local root = plr.Character:FindFirstChild("HumanoidRootPart")
                         if root and (root.Position - myRoot.Position).Magnitude <= 10 then
-                            local punchButton = gui.MainUI.AbilityContainer.Punch
-                            for _, conn in ipairs(getconnections(punchButton.MouseButton1Click)) do
+                            for _, conn in ipairs(getconnections(punch.MouseButton1Click)) do
                                 pcall(function() conn:Fire() end)
-                            end
-                            if customPunchEnabled then
-                                playCustomAnimation(customPunchAnimId)
                             end
                             if flingPunchOn then
                                 hiddenfling = true
                                 TweenService:Create(myRoot, TweenInfo.new(0.04, Enum.EasingStyle.Linear), {CFrame = root.CFrame}):Play()
-                                task.delay(1.5, function()
-                                    hiddenfling = false
-                                end)
+                                task.delay(1.5, function() hiddenfling = false end)
                             end
                             break
                         end
@@ -211,56 +129,57 @@ function loadRayfield()
                 end
             end
         end
-
-        if toggleOn then
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= lp and player.Character then
-                    local root = player.Character:FindFirstChild("HumanoidRootPart")
-                    if root and myRoot and (root.Position - myRoot.Position).Magnitude <= detectionRange then
-                        if not strictRangeOn or isFacing(myRoot, root) then
-                            fireRemoteBlock()
-                            break
-                        end
-                    end
-                end
-            end
-        end
     end)
 
-    -- Manual block and punch hooks (custom anims)
-    task.delay(1, function()
-        local gui = lp:FindFirstChild("PlayerGui")
-        if gui and gui:FindFirstChild("MainUI") then
-            local punchBtn = gui.MainUI:FindFirstChild("AbilityContainer") and gui.MainUI.AbilityContainer:FindFirstChild("Punch")
-            if punchBtn then
-                for _, conn in ipairs(getconnections(punchBtn.MouseButton1Click)) do
-                    local oldFunc = conn.Function
-                    conn:Disable()
-                    punchBtn.MouseButton1Click:Connect(function(...)
-                        oldFunc(...)
-                        if customPunchEnabled then
-                            playCustomAnimation(customPunchAnimId)
-                        end
-                    end)
-                end
-            end
+    -- Replace default anims with custom
+    local lastBlockTime, lastPunchTime = 0, 0
+    local blockAnimIds = {
+        ["rbxassetid://72722244508749"] = true,
+        ["rbxassetid://96959123077498"] = true
+    }
+    local punchAnimId = "rbxassetid://87259391926321"
 
-            local blockBtn = gui.MainUI.AbilityContainer:FindFirstChild("Block")
-            if blockBtn then
-                for _, conn in ipairs(getconnections(blockBtn.MouseButton1Click)) do
-                    local oldFunc = conn.Function
-                    conn:Disable()
-                    blockBtn.MouseButton1Click:Connect(function(...)
-                        oldFunc(...)
-                        if customBlockEnabled then
-                            playCustomAnimation(customBlockAnimId)
-                        end
-                    end)
-                end
-            end
+    local function playCustomAnimation(animId)
+        if not lp.Character then return end
+        local hum = lp.Character:FindFirstChildOfClass("Humanoid")
+        if hum and animId and animId ~= "" then
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://" .. animId
+            local track = hum:LoadAnimation(anim)
+            track:Play()
         end
-    end)
+    end
+
+    local function hookAnimationReplacement()
+        local function connect(hum)
+            if not hum then return end
+            hum.AnimationPlayed:Connect(function(track)
+                local id = track.Animation and track.Animation.AnimationId
+                local now = tick()
+                if customBlockEnabled and blockAnimIds[id] and now - lastBlockTime >= 1 then
+                    lastBlockTime = now
+                    track:Stop()
+                    playCustomAnimation(customBlockAnimId)
+                end
+                if customPunchEnabled and id == punchAnimId and now - lastPunchTime >= 1 then
+                    lastPunchTime = now
+                    track:Stop()
+                    playCustomAnimation(customPunchAnimId)
+                end
+            end)
+        end
+
+        if lp.Character then
+            connect(lp.Character:FindFirstChildOfClass("Humanoid"))
+        end
+
+        lp.CharacterAdded:Connect(function(char)
+            local hum = char:WaitForChild("Humanoid")
+            connect(hum)
+        end)
+    end
+
+    task.delay(3, hookAnimationReplacement)
 end
 
--- Run it
 loadRayfield()
