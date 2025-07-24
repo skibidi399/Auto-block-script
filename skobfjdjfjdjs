@@ -274,10 +274,9 @@ if autoPunchOn then
                 local root = player.Character:FindFirstChild("HumanoidRootPart")  
                 if root and myRoot and (root.Position - myRoot.Position).Magnitude <= 10 then  
                     -- Face player  
-                    if aimPunch then  
-                        local look = CFrame.lookAt(myRoot.Position, root.Position)  
-                        myRoot.CFrame = CFrame.new(myRoot.Position) * CFrame.Angles(0, look:ToEulerAnglesYXZ())  
-                    end  
+                    if aimPunch then
+                       myRoot.CFrame = CFrame.lookAt(myRoot.Position, root.Position)
+                    end
                     -- Punch  
                     for _, conn in ipairs(getconnections(punchBtn.MouseButton1Click)) do  
                         pcall(function() conn:Fire() end)  
