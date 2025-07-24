@@ -177,13 +177,23 @@ return looseFacing and dot > -0.3 or dot > 0
 end
 
 local function playCustomAnim(animId, isPunch)
-    if not Humanoid then return end
+    if not Humanoid then
+        warn("Humanoid missing")
+        return
+    end
+
+    if not animId or animId == "" then
+        warn("No animation ID provided")
+        return
+    end
 
     local now = tick()
     local lastTime = isPunch and lastPunchTime or lastBlockTime
-    if now - lastTime < 1 then return end
+    if now - lastTime < 1 then
+        return
+    end
 
-    -- Stop existing tracks that match known anim IDs
+    -- Stop other known anims
     for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
         local animNum = tostring(track.Animation.AnimationId):match("%d+")
         if table.find(isPunch and punchAnimIds or blockAnimIds, animNum) then
@@ -191,7 +201,7 @@ local function playCustomAnim(animId, isPunch)
         end
     end
 
-    -- Load and play custom animation
+    -- Create and load the animation
     local anim = Instance.new("Animation")
     anim.AnimationId = "rbxassetid://" .. animId
 
@@ -200,6 +210,7 @@ local function playCustomAnim(animId, isPunch)
     end)
 
     if success and track then
+        print("✅ Playing custom " .. (isPunch and "punch" or "block") .. " animation:", animId)
         track:Play()
         if isPunch then
             lastPunchTime = now
@@ -207,7 +218,7 @@ local function playCustomAnim(animId, isPunch)
             lastBlockTime = now
         end
     else
-        warn("Failed to load custom animation: " .. animId)
+        warn("❌ Failed to load or play custom animation: " .. animId)
     end
 end
 
@@ -240,8 +251,8 @@ RunService.Heartbeat:Connect(function()
 local myChar = lp.Character
 if not myChar then return end
 local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-
 Humanoid = myChar:FindFirstChildOfClass("Humanoid")
+
 for _, plr in ipairs(Players:GetPlayers()) do  
     if plr ~= lp and plr.Character then  
         local hrp = plr.Character:FindFirstChild("HumanoidRootPart")  
