@@ -183,7 +183,7 @@ local function playCustomAnim(animId, isPunch)
     local lastTime = isPunch and lastPunchTime or lastBlockTime
     if now - lastTime < 1 then return end
 
-    -- Stop old block or punch animations if any
+    -- Stop existing tracks that match known anim IDs
     for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
         local animNum = tostring(track.Animation.AnimationId):match("%d+")
         if table.find(isPunch and punchAnimIds or blockAnimIds, animNum) then
@@ -191,9 +191,10 @@ local function playCustomAnim(animId, isPunch)
         end
     end
 
-    -- Play custom animation
+    -- Load and play custom animation
     local anim = Instance.new("Animation")
     anim.AnimationId = "rbxassetid://" .. animId
+
     local success, track = pcall(function()
         return Humanoid:LoadAnimation(anim)
     end)
@@ -205,6 +206,8 @@ local function playCustomAnim(animId, isPunch)
         else
             lastBlockTime = now
         end
+    else
+        warn("Failed to load custom animation: " .. animId)
     end
 end
 
@@ -237,9 +240,8 @@ RunService.Heartbeat:Connect(function()
 local myChar = lp.Character
 if not myChar then return end
 local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-Humanoid = myChar:FindFirstChildOfClass("Humanoid")
-Animator = Humanoid and Humanoid:FindFirstChildOfClass("Animator")
 
+Humanoid = myChar:FindFirstChildOfClass("Humanoid")
 for _, plr in ipairs(Players:GetPlayers()) do  
     if plr ~= lp and plr.Character then  
         local hrp = plr.Character:FindFirstChild("HumanoidRootPart")  
