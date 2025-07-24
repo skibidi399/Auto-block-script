@@ -177,20 +177,35 @@ return looseFacing and dot > -0.3 or dot > 0
 end
 
 local function playCustomAnim(animId, isPunch)
-if not Humanoid or not Animator then return end
-local now = tick()
-local lastTime = isPunch and lastPunchTime or lastBlockTime
-if now - lastTime < 1 then return end
-for _, track in ipairs(Animator:GetPlayingAnimationTracks()) do
-if table.find(isPunch and punchAnimIds or blockAnimIds, tostring(track.Animation.AnimationId):match("%d+")) then
-track:Stop()
-end
-end
-local anim = Instance.new("Animation")
-anim.AnimationId = "rbxassetid://" .. animId
-local track = Animator:LoadAnimation(anim)
-track:Play()
-if isPunch then lastPunchTime = now else lastBlockTime = now end
+    if not Humanoid then return end
+
+    local now = tick()
+    local lastTime = isPunch and lastPunchTime or lastBlockTime
+    if now - lastTime < 1 then return end
+
+    -- Stop old block or punch animations if any
+    for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+        local animNum = tostring(track.Animation.AnimationId):match("%d+")
+        if table.find(isPunch and punchAnimIds or blockAnimIds, animNum) then
+            track:Stop()
+        end
+    end
+
+    -- Play custom animation
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. animId
+    local success, track = pcall(function()
+        return Humanoid:LoadAnimation(anim)
+    end)
+
+    if success and track then
+        track:Play()
+        if isPunch then
+            lastPunchTime = now
+        else
+            lastBlockTime = now
+        end
+    end
 end
 
 -- Fling coroutine
