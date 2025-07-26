@@ -93,23 +93,24 @@ detectionRange = tonumber(Text) or detectionRange
 end
 })
 
-FakeBlockTab:CreateToggle({
-Name = "Load Fake Block",
-CurrentValue = false,
-Callback = function(Value)
-local fakeGui = PlayerGui:FindFirstChild("FakeBlockGui")
-if Value then
-if not fakeGui then
-loadstring(game:HttpGet("https://pastebin.com/raw/ztnYv27k"))()
-else
-fakeGui.Enabled = true
-end
-else
-if fakeGui then
-fakeGui.Enabled = false
-end
-end
-end
+FakeBlockTab:CreateButton({
+    Name = "Load Fake Block",
+    Callback = function()
+        pcall(function()
+            local fakeGui = PlayerGui:FindFirstChild("FakeBlockGui")
+            if not fakeGui then
+                local success, result = pcall(function()
+                    return loadstring(game:HttpGet("https://pastebin.com/raw/ztnYv27k"))()
+                end)
+                if not success then
+                    warn("❌ Failed to load Fake Block GUI:", result)
+                end
+            else
+                fakeGui.Enabled = true
+                print("✅ Fake Block GUI enabled")
+            end
+        end)
+    end
 })
 
 AutoPunchTab:CreateToggle({
