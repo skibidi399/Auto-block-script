@@ -225,26 +225,26 @@ end
 
 -- Fling coroutine
 coroutine.wrap(function()
-local hrp, c, vel, movel = nil, nil, nil, 0.1
-while true do
-RunService.Heartbeat:Wait()
-if hiddenfling then
-while hiddenfling and not (c and c.Parent and hrp and hrp.Parent) do
-RunService.Heartbeat:Wait()
-c = lp.Character
-hrp = c and c:FindFirstChild("HumanoidRootPart")
-end
-if hiddenfling then
-vel = hrp.Velocity
-hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
-RunService.RenderStepped:Wait()
-hrp.Velocity = vel
-RunService.Stepped:Wait()
-hrp.Velocity = vel + Vector3.new(0, movel, 0)
-movel = movel * -1
-end
-end
-end
+    local hrp, c, vel, movel = nil, nil, nil, 0.1
+    while true do
+        RunService.Heartbeat:Wait()
+        if hiddenfling then
+            while hiddenfling and not (c and c.Parent and hrp and hrp.Parent) do
+                RunService.Heartbeat:Wait()
+                c = lp.Character
+                hrp = c and c:FindFirstChild("HumanoidRootPart")
+            end
+            if hiddenfling then
+                vel = hrp.Velocity
+                hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
+                RunService.RenderStepped:Wait()
+                hrp.Velocity = vel
+                RunService.Stepped:Wait()
+                hrp.Velocity = vel + Vector3.new(0, movel, 0)
+                movel = movel * -1
+            end
+        end
+    end
 end)()
 
 -- Auto block + punch detection loop
