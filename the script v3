@@ -14,7 +14,7 @@ OptionFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 OptionFrame.BorderSizePixel = 0
 
 local RayfieldButton = Instance.new("TextButton", OptionFrame)
-RayfieldButton.Text = "Rayfield Auto Block (more features but has a lil delay)"
+RayfieldButton.Text = "Rayfield Auto Block (USE THIS)"
 RayfieldButton.Size = UDim2.new(1, -20, 0.45, 0)
 RayfieldButton.Position = UDim2.new(0, 10, 0, 10)
 RayfieldButton.BackgroundColor3 = Color3.fromRGB(40, 130, 255)
@@ -23,7 +23,7 @@ RayfieldButton.TextWrapped = true
 RayfieldButton.TextScaled = true
 
 local OrionButton = Instance.new("TextButton", OptionFrame)
-OrionButton.Text = "Orion Auto Block (a lil faster but has less features)"
+OrionButton.Text = "Orion Auto Block (use this if you want hard mode)"
 OrionButton.Size = UDim2.new(1, -20, 0.45, 0)
 OrionButton.Position = UDim2.new(0, 10, 0.55, 0)
 OrionButton.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
