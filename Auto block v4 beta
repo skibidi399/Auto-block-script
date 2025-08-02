@@ -36,6 +36,15 @@ local autoBlockTriggerAnims = {
     "109667959938617", "126681776859538", "129976080405072", "121293883585738"
 }
 
+-- Gui Variables
+local playerGui = lp:WaitForChild("PlayerGui")
+local mainUI = playerGui:WaitForChild("MainUI", 5)
+local abilityContainer = mainUI and mainUI:WaitForChild("AbilityContainer", 5)
+local blockUI = abilityContainer and abilityContainer:WaitForChild("Block", 5)
+
+local cooldownLabel = blockUI and blockUI:FindFirstChild("CooldownTime")
+local helpless = blockUI and blockUI:FindFirstChild("Helpless")
+
 -- State Variables
 local autoBlockOn = false
 local strictRangeOn = false
@@ -65,6 +74,24 @@ local blockAnimIds = {
 local punchAnimIds = {
 "87259391926321"
 }
+
+local function cacheBlockUI()
+    local playerGui = lp:WaitForChild("PlayerGui")
+    local mainUI = playerGui:FindFirstChild("MainUI")
+    local abilityContainer = mainUI and mainUI:FindFirstChild("AbilityContainer")
+    local blockUI = abilityContainer and abilityContainer:FindFirstChild("Block")
+
+    cooldownLabel = blockUI and blockUI:FindFirstChild("CooldownTime")
+    helpless = blockUI and blockUI:FindFirstChild("Helpless")
+end
+
+lp.CharacterAdded:Connect(function()
+    task.wait(1)
+    cacheBlockUI()
+end)
+
+-- Initial call
+cacheBlockUI()
 
 -- GUI Toggles
 AutoBlockTab:CreateToggle({
@@ -272,12 +299,6 @@ end)()
 
 -- Auto block + punch detection loop
 RunService.Heartbeat:Connect(function()
-local myChar = lp.Character
-if not myChar then return end
-local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-Humanoid = myChar:FindFirstChildOfClass("Humanoid")
-
-RunService.Heartbeat:Connect(function()
     local myChar = lp.Character
     if not myChar then return end
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
@@ -288,7 +309,7 @@ RunService.Heartbeat:Connect(function()
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")  
             local hum = plr.Character:FindFirstChildOfClass("Humanoid")  
             local animTracks = hum and hum:FindFirstChildOfClass("Animator") and hum:FindFirstChildOfClass("Animator"):GetPlayingAnimationTracks()  
-            
+
             if hrp and myRoot and (hrp.Position - myRoot.Position).Magnitude <= detectionRange then  
                 for _, track in ipairs(animTracks or {}) do  
                     local id = tostring(track.Animation.AnimationId):match("%d+")  
@@ -298,32 +319,13 @@ RunService.Heartbeat:Connect(function()
                             if not facingCheckEnabled or isFacing(myRoot, hrp) then
                                 fireRemoteBlock()
 
-                                -- Play custom block animation
                                 if customBlockEnabled and customBlockAnimId ~= "" then  
                                     playCustomAnim(customBlockAnimId, false)  
                                 end
 
-                                -- Block TP: teleport 6 studs in front of killer
-                                if blockTpEnabled then
-                                    local gui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
-                                    if gui then
-                                        local mainUI = gui:FindFirstChild("MainUI")
-                                        if mainUI then
-                                            local container = mainUI:FindFirstChild("AbilityContainer")
-                                            if container then
-                                                local block = container:FindFirstChild("Block")
-                                                if block then
-                                                    local cooldownLabel = block:FindFirstChild("CooldownTime")
-                                                    local helpless = block:FindFirstChild("Helpless")
-
-                                                    if cooldownLabel and cooldownLabel.Text ~= "" and helpless then
-                                                        local tpPos = hrp.Position + (hrp.CFrame.LookVector * 5)
-                                                        myRoot.CFrame = CFrame.new(tpPos, hrp.Position)
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end
+                                if blockTpEnabled and cooldownLabel and cooldownLabel.Text ~= "" and helpless then
+                                    local tpPos = hrp.Position + (hrp.CFrame.LookVector * 5)
+                                    myRoot.CFrame = CFrame.new(tpPos, hrp.Position)
                                 end
                             end
                         end
@@ -332,40 +334,38 @@ RunService.Heartbeat:Connect(function()
             end
         end
     end
-end)
 
--- Auto Punch  
-if autoPunchOn then  
-    local gui = PlayerGui:FindFirstChild("MainUI")  
-    local punchBtn = gui and gui:FindFirstChild("AbilityContainer") and gui.AbilityContainer:FindFirstChild("Punch")  
-    local charges = punchBtn and punchBtn:FindFirstChild("Charges")  
-    if charges and charges.Text == "1" then  
-        for _, player in ipairs(Players:GetPlayers()) do  
-            if player ~= lp and player.Character then  
-                local root = player.Character:FindFirstChild("HumanoidRootPart")  
-                if root and myRoot and (root.Position - myRoot.Position).Magnitude <= 10 then  
-                    -- Face player  
-                    if aimPunch then
-                       myRoot.CFrame = CFrame.lookAt(myRoot.Position, root.Position)
-                    end
-                    -- Punch  
-                    for _, conn in ipairs(getconnections(punchBtn.MouseButton1Click)) do  
-                        pcall(function() conn:Fire() end)  
+    -- Auto Punch  
+    if autoPunchOn then  
+        local gui = PlayerGui:FindFirstChild("MainUI")  
+        local punchBtn = gui and gui:FindFirstChild("AbilityContainer") and gui.AbilityContainer:FindFirstChild("Punch")  
+        local charges = punchBtn and punchBtn:FindFirstChild("Charges")  
+        if charges and charges.Text == "1" then  
+            for _, player in ipairs(Players:GetPlayers()) do  
+                if player ~= lp and player.Character then  
+                    local root = player.Character:FindFirstChild("HumanoidRootPart")  
+                    if root and myRoot and (root.Position - myRoot.Position).Magnitude <= 10 then  
+                        if aimPunch then
+                           myRoot.CFrame = CFrame.lookAt(myRoot.Position, root.Position)
+                        end
+                        for _, conn in ipairs(getconnections(punchBtn.MouseButton1Click)) do  
+                            pcall(function() conn:Fire() end)  
+                        end  
+                        if flingPunchOn then  
+                            hiddenfling = true  
+                            TweenService:Create(myRoot, TweenInfo.new(0.04, Enum.EasingStyle.Linear), {CFrame = root.CFrame}):Play()  
+                            task.delay(1.5, function() hiddenfling = false end)  
+                        end  
+                        if customPunchEnabled and customPunchAnimId ~= "" then  
+                            playCustomAnim(customPunchAnimId, true)  
+                        end  
+                        break  
                     end  
-                    if flingPunchOn then  
-                        hiddenfling = true  
-                        TweenService:Create(myRoot, TweenInfo.new(0.04, Enum.EasingStyle.Linear), {CFrame = root.CFrame}):Play()  
-                        task.delay(1.5, function() hiddenfling = false end)  
-                    end  
-                    if customPunchEnabled and customPunchAnimId ~= "" then  
-                        playCustomAnim(customPunchAnimId, true)  
-                    end  
-                    break  
                 end  
             end  
         end  
-    end  
-end
+    end
+end)
 
 end)
 -- Continuous custom animation replacer (runs forever if toggled on)
