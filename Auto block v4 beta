@@ -277,35 +277,62 @@ if not myChar then return end
 local myRoot = myChar:FindFirstChild("HumanoidRootPart")
 Humanoid = myChar:FindFirstChildOfClass("Humanoid")
 
-for _, plr in ipairs(Players:GetPlayers()) do  
-    if plr ~= lp and plr.Character then  
-        local hrp = plr.Character:FindFirstChild("HumanoidRootPart")  
-        local hum = plr.Character:FindFirstChildOfClass("Humanoid")  
-        local animTracks = hum and hum:FindFirstChildOfClass("Animator") and hum:FindFirstChildOfClass("Animator"):GetPlayingAnimationTracks()  
-        if hrp and myRoot and (hrp.Position - myRoot.Position).Magnitude <= detectionRange then  
-            for _, track in ipairs(animTracks or {}) do  
-                local id = tostring(track.Animation.AnimationId):match("%d+")  
-                if table.find(autoBlockTriggerAnims, id) then  
-                    if autoBlockOn and (not strictRangeOn or (hrp.Position - myRoot.Position).Magnitude <= detectionRange) then  
-                        if not facingCheckEnabled or isFacing(myRoot, hrp) then
-                            fireRemoteBlock()  
+RunService.Heartbeat:Connect(function()
+    local myChar = lp.Character
+    if not myChar then return end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    Humanoid = myChar:FindFirstChildOfClass("Humanoid")
 
-                         if customBlockEnabled and customBlockAnimId ~= "" then  
-                             playCustomAnim(customBlockAnimId, false)  
-                          end  
+    for _, plr in ipairs(Players:GetPlayers()) do  
+        if plr ~= lp and plr.Character then  
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")  
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")  
+            local animTracks = hum and hum:FindFirstChildOfClass("Animator") and hum:FindFirstChildOfClass("Animator"):GetPlayingAnimationTracks()  
+            
+            if hrp and myRoot and (hrp.Position - myRoot.Position).Magnitude <= detectionRange then  
+                for _, track in ipairs(animTracks or {}) do  
+                    local id = tostring(track.Animation.AnimationId):match("%d+")  
+                    
+                    if table.find(autoBlockTriggerAnims, id) then  
+                        if autoBlockOn and (not strictRangeOn or (hrp.Position - myRoot.Position).Magnitude <= detectionRange) then  
+                            if not facingCheckEnabled or isFacing(myRoot, hrp) then
+                                fireRemoteBlock()
 
-                         -- Block TP: teleport 5 studs in front of killer
-                         if blockTpEnabled and autoBlockOn then
-                             local tpPos = hrp.Position + (hrp.CFrame.LookVector * 5)
-                             myRoot.CFrame = CFrame.new(tpPos, hrp.Position)
-                          end
-                       end
-                    end  
-                end  
-            end  
-        end  
-    end  
-end  
+                                -- Play custom block animation
+                                if customBlockEnabled and customBlockAnimId ~= "" then  
+                                    playCustomAnim(customBlockAnimId, false)  
+                                end
+
+                                -- Block TP: teleport 6 studs in front of killer
+                                if blockTpEnabled then
+                                    local gui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+                                    if gui then
+                                        local mainUI = gui:FindFirstChild("MainUI")
+                                        if mainUI then
+                                            local container = mainUI:FindFirstChild("AbilityContainer")
+                                            if container then
+                                                local block = container:FindFirstChild("Block")
+                                                if block then
+                                                    local cooldownLabel = block:FindFirstChild("CooldownTime")
+                                                    local helpless = block:FindFirstChild("Helpless")
+
+                                                    if cooldownLabel and cooldownLabel.Text ~= "" and helpless then
+                                                        local tpPos = hrp.Position + (hrp.CFrame.LookVector * 5)
+                                                        myRoot.CFrame = CFrame.new(tpPos, hrp.Position)
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
 
 -- Auto Punch  
 if autoPunchOn then  
