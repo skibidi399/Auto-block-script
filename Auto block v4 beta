@@ -75,23 +75,7 @@ local punchAnimIds = {
 "87259391926321"
 }
 
-local function cacheBlockUI()
-    local playerGui = lp:WaitForChild("PlayerGui")
-    local mainUI = playerGui:FindFirstChild("MainUI")
-    local abilityContainer = mainUI and mainUI:FindFirstChild("AbilityContainer")
-    local blockUI = abilityContainer and abilityContainer:FindFirstChild("Block")
 
-    cooldownLabel = blockUI and blockUI:FindFirstChild("CooldownTime")
-    helpless = blockUI and blockUI:FindFirstChild("Helpless")
-end
-
-lp.CharacterAdded:Connect(function()
-    task.wait(1)
-    cacheBlockUI()
-end)
-
--- Initial call
-cacheBlockUI()
 
 -- GUI Toggles
 AutoBlockTab:CreateToggle({
@@ -214,6 +198,24 @@ Name = "Enable Custom Punch Animation",
 CurrentValue = false,
 Callback = function(Value) customPunchEnabled = Value end
 })
+
+local function cacheBlockUI()
+    local playerGui = lp:WaitForChild("PlayerGui")
+    local mainUI = playerGui:FindFirstChild("MainUI")
+    local abilityContainer = mainUI and mainUI:FindFirstChild("AbilityContainer")
+    local blockUI = abilityContainer and abilityContainer:FindFirstChild("Block")
+
+    cooldownLabel = blockUI and blockUI:FindFirstChild("CooldownTime")
+    helpless = blockUI and blockUI:FindFirstChild("Helpless")
+end
+
+lp.CharacterAdded:Connect(function()
+    task.wait(1)
+    cacheBlockUI()
+end)
+
+-- Initial call
+cacheBlockUI()
 
 -- Helpers
 local function fireRemoteBlock()
