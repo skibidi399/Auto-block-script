@@ -42,13 +42,13 @@ local strictRangeOn = false
 local facingCheckEnabled = true
 local looseFacing = true
 local detectionRange = 18
+local blockTpEnabled = false
 
 local autoPunchOn = false
 local flingPunchOn = false
 local flingPower = 10000
 local hiddenfling = false
 local aimPunch = false
-local blockTpEnabled = false
 
 local customBlockEnabled = false
 local customBlockAnimId = ""
@@ -66,8 +66,6 @@ local punchAnimIds = {
 "87259391926321"
 }
 
-
-
 -- GUI Toggles
 AutoBlockTab:CreateToggle({
 Name = "Auto Block",
@@ -81,19 +79,24 @@ CurrentValue = false,
 Callback = function(Value) strictRangeOn = Value end
 })
 
+-- Facing Check toggle
 AutoBlockTab:CreateToggle({
     Name = "Facing Check",
     CurrentValue = true,
+    Flag = "FacingCheckToggle",
     Callback = function(value)
         facingCheckEnabled = value
     end,
 })
 
+-- Facing Check Mode dropdown
 AutoBlockTab:CreateDropdown({
-Name = "Facing Check",
-Options = {"Loose", "Strict"},
-CurrentOption = "Loose",
-Callback = function(Option) looseFacing = Option == "Loose" end
+    Name = "Facing Check Mode",
+    Options = {"Loose", "Strict"},
+    CurrentOption = "Strict",
+    Callback = function(mode)
+        facingCheckMode = mode
+    end,
 })
 
 AutoBlockTab:CreateInput({
@@ -106,16 +109,16 @@ end
 })
 
 AutoBlockTab:CreateParagraph({
-    Title = "Info",
-    Content = "Make sure Auto Block is ON for Block TP to work.",
+	Title = "Block TP",
+	Content = "killers cant do their m1 fake thing anymore",
 })
 
 AutoBlockTab:CreateToggle({
-    Name = "Block TP",
-    CurrentValue = false,
-    Callback = function(value)
-        blockTpEnabled = value
-    end,
+	Name = "Block TP",
+	CurrentValue = false,
+	Callback = function(Value)
+		blockTpEnabled = Value
+	end,
 })
 
 FakeBlockTab:CreateButton({
@@ -129,8 +132,7 @@ FakeBlockTab:CreateButton({
                 end)
                 if not success then
                     warn("❌ Failed to load Fake Block GUI:", result)
-                end
-            else
+                end            else
                 fakeGui.Enabled = true
                 print("✅ Fake Block GUI enabled")
             end
@@ -189,24 +191,6 @@ Name = "Enable Custom Punch Animation",
 CurrentValue = false,
 Callback = function(Value) customPunchEnabled = Value end
 })
-
-local function cacheBlockUI()
-    local playerGui = lp:WaitForChild("PlayerGui")
-    local mainUI = playerGui:FindFirstChild("MainUI")
-    local abilityContainer = mainUI and mainUI:FindFirstChild("AbilityContainer")
-    local blockUI = abilityContainer and abilityContainer:FindFirstChild("Block")
-
-    cooldownLabel = blockUI and blockUI:FindFirstChild("CooldownTime")
-    helpless = blockUI and blockUI:FindFirstChild("Helpless")
-end
-
-lp.CharacterAdded:Connect(function()
-    task.wait(1)
-    cacheBlockUI()
-end)
-
--- Initial call
-cacheBlockUI()
 
 -- Helpers
 local function fireRemoteBlock()
@@ -306,59 +290,61 @@ RunService.Heartbeat:Connect(function()
             if hrp and myRoot and (hrp.Position - myRoot.Position).Magnitude <= detectionRange then  
                 for _, track in ipairs(animTracks or {}) do  
                     local id = tostring(track.Animation.AnimationId):match("%d+")  
-                    
                     if table.find(autoBlockTriggerAnims, id) then  
                         if autoBlockOn and (not strictRangeOn or (hrp.Position - myRoot.Position).Magnitude <= detectionRange) then  
-                            if not facingCheckEnabled or isFacing(myRoot, hrp) then
+                            if not facingCheckEnabled or isFacing(myRoot, hrp) then  
                                 fireRemoteBlock()
 
                                 if customBlockEnabled and customBlockAnimId ~= "" then  
                                     playCustomAnim(customBlockAnimId, false)  
                                 end
 
-                                if blockTpEnabled and cooldownLabel and cooldownLabel.Text ~= "" and helpless then
-                                    local tpPos = hrp.Position + (hrp.CFrame.LookVector * 5)
+                                -- Block TP: teleport 6 studs in front of killer
+                                if blockTpEnabled then
+                                    local tpPos = hrp.Position + (hrp.CFrame.LookVector * 6)
                                     myRoot.CFrame = CFrame.new(tpPos, hrp.Position)
                                 end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    -- Auto Punch  
-    if autoPunchOn then  
-        local gui = PlayerGui:FindFirstChild("MainUI")  
-        local punchBtn = gui and gui:FindFirstChild("AbilityContainer") and gui.AbilityContainer:FindFirstChild("Punch")  
-        local charges = punchBtn and punchBtn:FindFirstChild("Charges")  
-        if charges and charges.Text == "1" then  
-            for _, player in ipairs(Players:GetPlayers()) do  
-                if player ~= lp and player.Character then  
-                    local root = player.Character:FindFirstChild("HumanoidRootPart")  
-                    if root and myRoot and (root.Position - myRoot.Position).Magnitude <= 10 then  
-                        if aimPunch then
-                           myRoot.CFrame = CFrame.lookAt(myRoot.Position, root.Position)
-                        end
-                        for _, conn in ipairs(getconnections(punchBtn.MouseButton1Click)) do  
-                            pcall(function() conn:Fire() end)  
+                            end  
                         end  
-                        if flingPunchOn then  
-                            hiddenfling = true  
-                            TweenService:Create(myRoot, TweenInfo.new(0.04, Enum.EasingStyle.Linear), {CFrame = root.CFrame}):Play()  
-                            task.delay(1.5, function() hiddenfling = false end)  
-                        end  
-                        if customPunchEnabled and customPunchAnimId ~= "" then  
-                            playCustomAnim(customPunchAnimId, true)  
-                        end  
-                        break  
                     end  
                 end  
             end  
         end  
-    end
-end)
+    end  
+end
+
+-- Auto Punch  
+if autoPunchOn then  
+    local gui = PlayerGui:FindFirstChild("MainUI")  
+    local punchBtn = gui and gui:FindFirstChild("AbilityContainer") and gui.AbilityContainer:FindFirstChild("Punch")  
+    local charges = punchBtn and punchBtn:FindFirstChild("Charges")  
+    if charges and charges.Text == "1" then  
+        for _, player in ipairs(Players:GetPlayers()) do  
+            if player ~= lp and player.Character then  
+                local root = player.Character:FindFirstChild("HumanoidRootPart")  
+                if root and myRoot and (root.Position - myRoot.Position).Magnitude <= 10 then  
+                    -- Face player  
+                    if aimPunch then
+                       myRoot.CFrame = CFrame.lookAt(myRoot.Position, root.Position)
+                    end
+                    -- Punch  
+                    for _, conn in ipairs(getconnections(punchBtn.MouseButton1Click)) do  
+                        pcall(function() conn:Fire() end)  
+                    end  
+                    if flingPunchOn then  
+                        hiddenfling = true  
+                        TweenService:Create(myRoot, TweenInfo.new(0.04, Enum.EasingStyle.Linear), {CFrame = root.CFrame}):Play()  
+                        task.delay(1.5, function() hiddenfling = false end)  
+                    end  
+                    if customPunchEnabled and customPunchAnimId ~= "" then  
+                        playCustomAnim(customPunchAnimId, true)  
+                    end  
+                    break  
+                end  
+            end  
+        end  
+    end  
+end
 
 end)
 -- Continuous custom animation replacer (runs forever if toggled on)
