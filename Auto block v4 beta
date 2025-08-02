@@ -281,9 +281,9 @@ for _, plr in ipairs(Players:GetPlayers()) do
                         if isFacing(myRoot, hrp) then  
                         fireRemoteBlock()  
 
-                        if customBlockEnabled and customBlockAnimId ~= "" then  
-                            playCustomAnim(customBlockAnimId, false)  
-                         end  
+                         if customBlockEnabled and customBlockAnimId ~= "" then  
+                             playCustomAnim(customBlockAnimId, false)  
+                          end  
 
                          -- Block TP: teleport 6 studs in front of killer
                          if blockTpEnabled and autoBlockOn then
