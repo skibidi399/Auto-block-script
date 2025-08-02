@@ -36,15 +36,6 @@ local autoBlockTriggerAnims = {
     "109667959938617", "126681776859538", "129976080405072", "121293883585738"
 }
 
--- Gui Variables
-local playerGui = lp:WaitForChild("PlayerGui")
-local mainUI = playerGui:WaitForChild("MainUI", 5)
-local abilityContainer = mainUI and mainUI:WaitForChild("AbilityContainer", 5)
-local blockUI = abilityContainer and abilityContainer:WaitForChild("Block", 5)
-
-local cooldownLabel = blockUI and blockUI:FindFirstChild("CooldownTime")
-local helpless = blockUI and blockUI:FindFirstChild("Helpless")
-
 -- State Variables
 local autoBlockOn = false
 local strictRangeOn = false
