@@ -47,6 +47,7 @@ local flingPunchOn = false
 local flingPower = 10000
 local hiddenfling = false
 local aimPunch = false
+local blockTpEnabled = false
 
 local customBlockEnabled = false
 local customBlockAnimId = ""
@@ -91,6 +92,19 @@ RemoveTextAfterFocusLost = false,
 Callback = function(Text)
 detectionRange = tonumber(Text) or detectionRange
 end
+})
+
+AutoBlockTab:CreateParagraph({
+    Title = "Info",
+    Content = "Make sure Auto Block is ON for Block TP to work.",
+})
+
+AutoBlockTab:CreateToggle({
+    Name = "Block TP",
+    CurrentValue = false,
+    Callback = function(value)
+        blockTpEnabled = value
+    end,
 })
 
 FakeBlockTab:CreateButton({
@@ -265,11 +279,18 @@ for _, plr in ipairs(Players:GetPlayers()) do
                 if table.find(autoBlockTriggerAnims, id) then  
                     if autoBlockOn and (not strictRangeOn or (hrp.Position - myRoot.Position).Magnitude <= detectionRange) then  
                         if isFacing(myRoot, hrp) then  
-                            fireRemoteBlock()  
-                            if customBlockEnabled and customBlockAnimId ~= "" then  
-                                playCustomAnim(customBlockAnimId, false)  
-                            end  
-                        end  
+                        fireRemoteBlock()  
+
+                        if customBlockEnabled and customBlockAnimId ~= "" then  
+                            playCustomAnim(customBlockAnimId, false)  
+                         end  
+
+                         -- Block TP: teleport 6 studs in front of killer
+                         if blockTpEnabled and autoBlockOn then
+                             local tpPos = hrp.Position + (hrp.CFrame.LookVector * 6)
+                             myRoot.CFrame = CFrame.new(tpPos, hrp.Position)
+                          end
+                       end
                     end  
                 end  
             end  
