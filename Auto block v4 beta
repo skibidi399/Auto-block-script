@@ -39,6 +39,7 @@ local autoBlockTriggerAnims = {
 -- State Variables
 local autoBlockOn = false
 local strictRangeOn = false
+local facingCheckEnabled = true
 local looseFacing = true
 local detectionRange = 18
 
@@ -76,6 +77,14 @@ AutoBlockTab:CreateToggle({
 Name = "Strict Range",
 CurrentValue = false,
 Callback = function(Value) strictRangeOn = Value end
+})
+
+AutoBlockTab:CreateToggle({
+    Name = "Facing Check",
+    CurrentValue = true,
+    Callback = function(value)
+        facingCheckEnabled = value
+    end,
 })
 
 AutoBlockTab:CreateDropdown({
@@ -278,8 +287,8 @@ for _, plr in ipairs(Players:GetPlayers()) do
                 local id = tostring(track.Animation.AnimationId):match("%d+")  
                 if table.find(autoBlockTriggerAnims, id) then  
                     if autoBlockOn and (not strictRangeOn or (hrp.Position - myRoot.Position).Magnitude <= detectionRange) then  
-                        if isFacing(myRoot, hrp) then  
-                        fireRemoteBlock()  
+                        if not facingCheckEnabled or isFacing(myRoot, hrp) then
+                            fireRemoteBlock()  
 
                          if customBlockEnabled and customBlockAnimId ~= "" then  
                              playCustomAnim(customBlockAnimId, false)  
