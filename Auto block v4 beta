@@ -285,9 +285,9 @@ for _, plr in ipairs(Players:GetPlayers()) do
                              playCustomAnim(customBlockAnimId, false)  
                           end  
 
-                         -- Block TP: teleport 6 studs in front of killer
+                         -- Block TP: teleport 5 studs in front of killer
                          if blockTpEnabled and autoBlockOn then
-                             local tpPos = hrp.Position + (hrp.CFrame.LookVector * 6)
+                             local tpPos = hrp.Position + (hrp.CFrame.LookVector * 5)
                              myRoot.CFrame = CFrame.new(tpPos, hrp.Position)
                           end
                        end
