@@ -424,6 +424,30 @@ RunService.Heartbeat:Connect(function()
     if not myChar then return end
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     Humanoid = myChar:FindFirstChildOfClass("Humanoid")
+        -- Auto Block: Trigger block if a valid animation is played by a killer
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= lp and plr.Character then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local animTracks = hum and hum:FindFirstChildOfClass("Animator") and hum:FindFirstChildOfClass("Animator"):GetPlayingAnimationTracks()
+
+            if hrp and myRoot and (hrp.Position - myRoot.Position).Magnitude <= detectionRange then
+                for _, track in ipairs(animTracks or {}) do
+                    local id = tostring(track.Animation.AnimationId):match("%d+")
+                    if table.find(autoBlockTriggerAnims, id) then
+                        if autoBlockOn and (not strictRangeOn or (hrp.Position - myRoot.Position).Magnitude <= detectionRange) then
+                            if isFacing(myRoot, hrp) then
+                                fireRemoteBlock()
+                                if customBlockEnabled and customBlockAnimId ~= "" then
+                                    playCustomAnim(customBlockAnimId, false)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
 
     -- Detect if player is playing a block animation, and blockTP is enabled
     if blockTPEnabled and Humanoid and tick() - lastBlockTpTime >= 5 then
@@ -501,30 +525,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Auto Block: Trigger block if a valid animation is played by a killer
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= lp and plr.Character then
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-            local animTracks = hum and hum:FindFirstChildOfClass("Animator") and hum:FindFirstChildOfClass("Animator"):GetPlayingAnimationTracks()
 
-            if hrp and myRoot and (hrp.Position - myRoot.Position).Magnitude <= detectionRange then
-                for _, track in ipairs(animTracks or {}) do
-                    local id = tostring(track.Animation.AnimationId):match("%d+")
-                    if table.find(autoBlockTriggerAnims, id) then
-                        if autoBlockOn and (not strictRangeOn or (hrp.Position - myRoot.Position).Magnitude <= detectionRange) then
-                            if isFacing(myRoot, hrp) then
-                                fireRemoteBlock()
-                                if customBlockEnabled and customBlockAnimId ~= "" then
-                                    playCustomAnim(customBlockAnimId, false)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
 
     -- Auto Punch
     if autoPunchOn then
