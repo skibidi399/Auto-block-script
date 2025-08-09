@@ -45,6 +45,7 @@ local autoBlockTriggerSounds = {
     ["86174610237192"] = true,
     ["95079963655241"] = true,
     ["101199185291628"] = true,
+    ["119942598489800"] = true,
 }
 
 local autoBlockTriggerAnims = {
