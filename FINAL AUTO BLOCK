@@ -30,7 +30,18 @@ local MiscTab = Window:CreateTab("Misc", 4483362458)
 
 
 
--- Anim Ids
+-- IDs.
+
+-- Audio-based Auto Block IDs
+local autoBlockTriggerSounds = {
+    ["102228729296384"] = true,
+    ["140242176732868"] = true,
+    ["112809109188560"] = true,
+    ["136323728355613"] = true,
+    ["115026634746636"] = true,
+    ["84116622032112"] = true,
+}
+
 local autoBlockTriggerAnims = {
     "126830014841198", "126355327951215", "121086746534252", "18885909645",
     "98456918873918", "105458270463374", "83829782357897", "125403313786645",
@@ -43,6 +54,7 @@ local autoBlockTriggerAnims = {
 
 -- State Variables
 local autoBlockOn = false
+local autoBlockAudioOn = false
 local strictRangeOn = false
 local looseFacing = true
 local detectionRange = 18
@@ -103,9 +115,24 @@ end
 
 -- GUI Toggles
 AutoBlockTab:CreateToggle({
-Name = "Auto Block",
+Name = "Auto Block (Animation)",
 CurrentValue = false,
 Callback = function(Value) autoBlockOn = Value end
+})
+
+-- Rayfield toggle for Auto Block (Audio)
+AutoBlockTab:CreateToggle({
+    Name = "Auto Block (Audio)",
+    CurrentValue = false,
+    Flag = "AutoBlockAudio",
+    Callback = function(state)
+        autoBlockAudioOn = state
+    end,
+})
+
+AutoBlockTab:CreateParagraph({
+    Title = "Recomendation",
+    Content = "Use audio Auto Block for faster auto block yez"
 })
 
 AutoBlockTab:CreateToggle({
@@ -417,6 +444,139 @@ coroutine.wrap(function()
         end
     end
 end)()
+
+
+-- ===== Robust Sound Auto Block (replace your current Sound Auto Block) =====
+local soundHooks = {}     -- [Sound] = {playedConn, propConn, destroyConn}
+local soundBlockedUntil = {} -- [Sound] = timestamp when we can block again (throttle)
+
+local function extractNumericSoundId(sound)
+    if not sound or not sound.SoundId then return nil end
+    local sid = tostring(sound.SoundId)
+
+    -- Prefer numeric id if present
+    local num = sid:match("%d+")
+    if num then return num end
+
+    -- Fallbacks (these won't match your numeric whitelist, but kept for completeness)
+    local hash = sid:match("[&%?]hash=([^&]+)")
+    if hash then return "&hash="..hash end
+    local path = sid:match("rbxasset://sounds/.+")
+    if path then return path end
+
+    return nil
+end
+
+local function getSoundWorldPosition(sound)
+    if not sound then return nil end
+    if sound.Parent and sound.Parent:IsA("BasePart") then
+        return sound.Parent.Position, sound.Parent
+    end
+    if sound.Parent and sound.Parent:IsA("Attachment") and sound.Parent.Parent and sound.Parent.Parent:IsA("BasePart") then
+        return sound.Parent.Parent.Position, sound.Parent.Parent
+    end
+    -- deep search for any BasePart ancestor/descendant
+    local found = sound.Parent and sound.Parent:FindFirstChildWhichIsA("BasePart", true)
+    if found then
+        return found.Position, found
+    end
+    return nil, nil
+end
+
+local function attemptBlockForSound(sound)
+    if not autoBlockAudioOn then return end
+    if not sound or not sound:IsA("Sound") then return end
+
+    -- Only care when actually playing
+    if not sound.IsPlaying then return end
+
+    local id = extractNumericSoundId(sound)
+    if not id or not autoBlockTriggerSounds[id] then return end
+
+    local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    -- Throttle one block per sound for a short window
+    if soundBlockedUntil[sound] and tick() < soundBlockedUntil[sound] then
+        return
+    end
+
+    local soundPos, soundPart = getSoundWorldPosition(sound)
+    local shouldBlock = false
+    local facingOK = true
+
+    if soundPos then
+        local dist = (myRoot.Position - soundPos).Magnitude
+        if dist <= detectionRange then
+            shouldBlock = true
+            -- Only do facing check if we have a BasePart to use (soundPart)
+            if facingCheckEnabled and soundPart and soundPart:IsA("BasePart") then
+                facingOK = isFacing(myRoot, soundPart)
+            end
+        end
+    else
+        -- No position available -> block anyway (per your request)
+        shouldBlock = true
+        facingOK = true
+    end
+
+    if shouldBlock and facingOK then
+        fireRemoteBlock()
+        if customBlockEnabled and customBlockAnimId ~= "" then
+            playCustomAnim(customBlockAnimId, false)
+        end
+        -- throttle: don't spam block for the same sound
+        soundBlockedUntil[sound] = tick() + 1.2
+    end
+end
+
+local function hookSound(sound)
+    if not sound or not sound:IsA("Sound") then return end
+    if soundHooks[sound] then return end -- already hooked
+
+    local playedConn = sound.Played:Connect(function()
+        -- handle immediate play
+        pcall(attemptBlockForSound, sound)
+    end)
+
+    local propConn = sound:GetPropertyChangedSignal("IsPlaying"):Connect(function()
+        if sound.IsPlaying then
+            pcall(attemptBlockForSound, sound)
+        end
+    end)
+
+    local destroyConn
+    destroyConn = sound.Destroying:Connect(function()
+        -- cleanup
+        if playedConn and playedConn.Connected then playedConn:Disconnect() end
+        if propConn and propConn.Connected then propConn:Disconnect() end
+        if destroyConn and destroyConn.Connected then destroyConn:Disconnect() end
+        soundHooks[sound] = nil
+        soundBlockedUntil[sound] = nil
+    end)
+
+    soundHooks[sound] = {playedConn, propConn, destroyConn}
+
+    -- If it's already playing right now, check it immediately
+    if sound.IsPlaying then
+        task.spawn(function() pcall(attemptBlockForSound, sound) end)
+    end
+end
+
+-- Hook existing Sounds across the game (covers workspace, SoundService, Lighting, etc.)
+for _, desc in ipairs(game:GetDescendants()) do
+    if desc:IsA("Sound") then
+        pcall(hookSound, desc)
+    end
+end
+
+-- Hook any future Sounds
+game.DescendantAdded:Connect(function(desc)
+    if desc:IsA("Sound") then
+        pcall(hookSound, desc)
+    end
+end)
+-- ===== End Robust Sound Auto Block =====
 
 -- Auto block + punch detection loop
 RunService.RenderStepped:Connect(function()
