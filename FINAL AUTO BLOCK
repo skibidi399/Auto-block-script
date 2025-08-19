@@ -47,7 +47,8 @@ local autoBlockTriggerSounds = {
     ["101199185291628"] = true,
     ["119942598489800"] = true,
     ["84307400688050"] = true,
-    ["140242176732868"] = true
+    ["113037804008732"] = true,
+    ["105200830849301"] = true
 }
 
 local autoBlockTriggerAnims = {
@@ -63,7 +64,6 @@ local autoBlockTriggerAnims = {
 -- State Variables
 local autoBlockOn = false
 local autoBlockAudioOn = false
-local strictRangeOn = false
 local looseFacing = true
 local detectionRange = 18
 
@@ -85,6 +85,8 @@ local customPunchEnabled = false
 local customPunchAnimId = ""
 
 local infiniteStamina = false
+local espEnabled = false
+local KillersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
 local lastBlockTime = 0
 local lastPunchTime = 0
@@ -125,6 +127,7 @@ end
 AutoBlockTab:CreateToggle({
 Name = "Auto Block (Animation)",
 CurrentValue = false,
+Flag = "AutoBlockAnimation",
 Callback = function(Value) autoBlockOn = Value end
 })
 
@@ -140,13 +143,7 @@ AutoBlockTab:CreateToggle({
 
 AutoBlockTab:CreateParagraph({
     Title = "Recomendation",
-    Content = "Use audio Auto Block for faster auto block yez"
-})
-
-AutoBlockTab:CreateToggle({
-Name = "Strict Range",
-CurrentValue = false,
-Callback = function(Value) strictRangeOn = Value end
+    Content = "use audio auto block and use 20 range for it"
 })
 
 local facingCheckEnabled = true
@@ -154,6 +151,7 @@ local facingCheckEnabled = true
 AutoBlockTab:CreateToggle({
     Name = "Enable Facing Check",
     CurrentValue = true,
+    Flag = "FacingCheckToggle",
     Callback = function(Value)
         facingCheckEnabled = Value
     end
@@ -163,6 +161,7 @@ AutoBlockTab:CreateDropdown({
 Name = "Facing Check",
 Options = {"Loose", "Strict"},
 CurrentOption = "Loose",
+Flag = "FacingCheckMode",
 Callback = function(Option) looseFacing = Option == "Loose" end
 })
 
@@ -170,6 +169,7 @@ AutoBlockTab:CreateInput({
 Name = "Detection Range",
 PlaceholderText = "18",
 RemoveTextAfterFocusLost = false,
+Flag = "DetectionRange",
 Callback = function(Text)
 detectionRange = tonumber(Text) or detectionRange
 end
@@ -222,6 +222,7 @@ PredictiveTab:CreateSlider({
     Range = {0, 7},
     Increment = 0.1,
     CurrentValue = 3,
+    Flag = "edgekillerlmao",
     Callback = function(val)
         edgeKillerDelay = val
     end,
@@ -255,6 +256,7 @@ FakeBlockTab:CreateButton({
 AutoPunchTab:CreateToggle({
 Name = "Auto Punch",
 CurrentValue = false,
+Flag = "AutoPunchToggle",
 Callback = function(Value) autoPunchOn = Value end
 })
 
@@ -267,6 +269,7 @@ Callback = function(Value) flingPunchOn = Value end
 AutoPunchTab:CreateToggle({
 Name = "Punch Aimbot",
 CurrentValue = false,
+Flag = "PunchAimToggle",
 Callback = function(Value) aimPunch = Value end
 })
 
@@ -289,6 +292,7 @@ Name = "Fling Power",
 Range = {5000, 50000000000000},
 Increment = 1000000,
 CurrentValue = 10000,
+Flag = "FlingPower",
 Callback = function(Value) flingPower = Value end
 })
 
@@ -309,12 +313,14 @@ CustomAnimationsTab:CreateInput({
 Name = "Custom Punch Animation (not for M3/M4)",
 PlaceholderText = "AnimationId",
 RemoveTextAfterFocusLost = false,
+Flag = customblockid",
 Callback = function(Text) customPunchAnimId = Text end
 })
 
 CustomAnimationsTab:CreateToggle({
 Name = "Enable Custom Punch Animation",
 CurrentValue = false,
+Flag = "custompunchid",
 Callback = function(Value) customPunchEnabled = Value end
 })
 
@@ -322,6 +328,7 @@ CustomAnimationsTab:CreateInput({
     Name = "Charge Animation ID",
     PlaceholderText = "Put animation ID here",
     RemoveTextAfterFocusLost = false,
+    Flag = "customchargeid",
     Callback = function(input)
         customChargeAnimId = input
     end,
@@ -352,6 +359,7 @@ MiscTab:CreateParagraph({
 MiscTab:CreateToggle({
     Name = "Infinite Stamina",
     CurrentValue = false,
+    Flag = "InfStamina",
     Callback = function(value)
         infiniteStamina = value
         if infiniteStamina then
@@ -365,6 +373,109 @@ MiscTab:CreateToggle({
             end
         end
     end
+})
+
+
+local function addESP(obj)
+    if not obj:IsA("Model") then return end
+    if not obj:FindFirstChild("HumanoidRootPart") then return end
+
+    local plr = Players:GetPlayerFromCharacter(obj)
+    if not plr then return end -- ✅ only add ESP if it's a player character
+
+    -- Prevent duplicates
+    if obj:FindFirstChild("ESP_Highlight") then return end
+
+    -- Highlight
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Adornee = obj
+    highlight.Parent = obj
+
+    -- Billboard
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP_Billboard"
+    billboard.Size = UDim2.new(0, 100, 0, 50)
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = obj:FindFirstChild("HumanoidRootPart")
+    billboard.Parent = obj
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Name = "ESP_Text"
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    textLabel.TextScaled = true
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.Text = obj.Name
+    textLabel.Parent = billboard
+end
+
+-- Function to clear ESP
+local function clearESP(obj)
+    if obj:FindFirstChild("ESP_Highlight") then
+        obj.ESP_Highlight:Destroy()
+    end
+    if obj:FindFirstChild("ESP_Billboard") then
+        obj.ESP_Billboard:Destroy()
+    end
+end
+
+-- Function to refresh all ESP
+local function refreshESP()
+    if not espEnabled then
+        for _, killer in pairs(KillersFolder:GetChildren()) do
+            clearESP(killer)
+        end
+        return
+    end
+
+    for _, killer in pairs(KillersFolder:GetChildren()) do
+        addESP(killer)
+    end
+end
+
+
+-- Modify ChildAdded connection:
+KillersFolder.ChildAdded:Connect(function(child)
+    if espEnabled then
+        task.wait(0.1) -- wait for HRP
+        addESP(child)
+    end
+end)
+
+
+KillersFolder.ChildRemoved:Connect(function(child)
+    clearESP(child)
+end)
+
+-- Distance updater
+RunService.RenderStepped:Connect(function()
+    if not espEnabled then return end
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    for _, killer in pairs(KillersFolder:GetChildren()) do
+        local billboard = killer:FindFirstChild("ESP_Billboard")
+        if billboard and billboard:FindFirstChild("ESP_Text") and killer:FindFirstChild("HumanoidRootPart") then
+            local dist = (killer.HumanoidRootPart.Position - hrp.Position).Magnitude
+            billboard.ESP_Text.Text = string.format("%s\n[%d]", killer.Name, dist)
+        end
+    end
+end)
+
+MiscTab:CreateToggle({
+    Name = "Killer ESP",
+    CurrentValue = false,
+    Flag = "KillerESP_Toggle",
+    Callback = function(Value)
+        espEnabled = Value
+        refreshESP()
+    end,
 })
 
 -- Helpers
@@ -463,7 +574,7 @@ local function extractNumericSoundId(sound)
     local sid = tostring(sound.SoundId)
 
     -- Prefer numeric id if present
-    local num = sid:match("%d+")
+    local num = sid:match("(%d+)$") or sid:match("id=(%d+)")
     if num then return num end
 
     -- Fallbacks (these won't match your numeric whitelist, but kept for completeness)
@@ -494,8 +605,6 @@ end
 local function attemptBlockForSound(sound)
     if not autoBlockAudioOn then return end
     if not sound or not sound:IsA("Sound") then return end
-
-    -- Only care when actually playing
     if not sound.IsPlaying then return end
 
     local id = extractNumericSoundId(sound)
@@ -504,37 +613,35 @@ local function attemptBlockForSound(sound)
     local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
 
-    -- Throttle one block per sound for a short window
+    -- Throttle
     if soundBlockedUntil[sound] and tick() < soundBlockedUntil[sound] then
         return
     end
 
     local soundPos, soundPart = getSoundWorldPosition(sound)
-    local shouldBlock = false
-    local facingOK = true
+    local shouldBlock, facingOK = false, true
 
     if soundPos then
         local dist = (myRoot.Position - soundPos).Magnitude
         if dist <= detectionRange then
+            local char = soundPart and soundPart.Parent
+            local plr = char and Players:GetPlayerFromCharacter(char)
+            if not plr then
+                return
+            end
+
             shouldBlock = true
-            -- Only do facing check if we have a BasePart to use (soundPart)
             if facingCheckEnabled and soundPart and soundPart:IsA("BasePart") then
                 facingOK = isFacing(myRoot, soundPart)
             end
         end
     else
-        -- No position available -> block anyway (per your request)
         shouldBlock = true
-        facingOK = true
     end
 
     if shouldBlock and facingOK then
         fireRemoteBlock()
-        if customBlockEnabled and customBlockAnimId ~= "" then
-            playCustomAnim(customBlockAnimId, false)
-        end
-        -- throttle: don't spam block for the same sound
-        soundBlockedUntil[sound] = tick() + 1.2
+        soundBlockedUntil[sound] = tick() + 0.5
     end
 end
 
@@ -584,6 +691,29 @@ game.DescendantAdded:Connect(function(desc)
         pcall(hookSound, desc)
     end
 end)
+
+for _, s in ipairs(game:GetService("SoundService"):GetDescendants()) do
+    if s:IsA("Sound") then
+        hookSound(s)
+    end
+end
+
+game:GetService("SoundService").DescendantAdded:Connect(function(desc)
+    if desc:IsA("Sound") then
+        hookSound(desc)
+    end
+end)
+
+-- Extra fallback loop
+RunService.Heartbeat:Connect(function()
+    if not autoBlockAudioOn then return end
+
+    for sound, _ in pairs(soundHooks) do
+        if sound and sound:IsA("Sound") and sound.IsPlaying then
+            pcall(attemptBlockForSound, sound)
+        end
+    end
+end)
 -- ===== End Robust Sound Auto Block =====
 
 -- Auto block + punch detection loop
@@ -603,12 +733,9 @@ RunService.RenderStepped:Connect(function()
                 for _, track in ipairs(animTracks or {}) do
                     local id = tostring(track.Animation.AnimationId):match("%d+")
                     if table.find(autoBlockTriggerAnims, id) then
-                        if autoBlockOn and (not strictRangeOn or (hrp.Position - myRoot.Position).Magnitude <= detectionRange) then
+                        if autoBlockOn and (hrp.Position - myRoot.Position).Magnitude <= detectionRange then
                             if isFacing(myRoot, hrp) then
                                 fireRemoteBlock()
-                                if customBlockEnabled and customBlockAnimId ~= "" then
-                                    playCustomAnim(customBlockAnimId, false)
-                                end
                             end
                         end
                     end
@@ -723,7 +850,7 @@ RunService.RenderStepped:Connect(function()
 
                             task.spawn(function()
                                 local start = tick()
-                                while tick() - start < 2 do
+                                while tick() - start < 1.3 do
                                     if myRoot and root and root.Parent then
                                         local predictedPos = root.Position + (root.CFrame.LookVector * predictionValue)
                                         myRoot.CFrame = CFrame.lookAt(myRoot.Position, predictedPos)
@@ -799,9 +926,14 @@ task.spawn(function()
 
             -- Block animation replacement
             if customBlockEnabled and customBlockAnimId ~= "" and table.find(blockAnimIds, animId) then
+                if animId == tostring(customBlockAnimId) then
+                    continue -- already custom anim
+                end
+            
                 if tick() - lastReplaceTime.block >= 3 then
                     lastReplaceTime.block = tick()
                     track:Stop()
+
                     local newAnim = Instance.new("Animation")
                     newAnim.AnimationId = "rbxassetid://" .. customBlockAnimId
                     local newTrack = animator:LoadAnimation(newAnim)
@@ -812,9 +944,14 @@ task.spawn(function()
 
             -- Punch animation replacement
             if customPunchEnabled and customPunchAnimId ~= "" and table.find(punchAnimIds, animId) then
+                if animId == tostring(customPunchAnimId) then
+                    continue -- already custom anim
+                end
+            
                 if tick() - lastReplaceTime.punch >= 3 then
                     lastReplaceTime.punch = tick()
                     track:Stop()
+
                     local newAnim = Instance.new("Animation")
                     newAnim.AnimationId = "rbxassetid://" .. customPunchAnimId
                     local newTrack = animator:LoadAnimation(newAnim)
@@ -825,9 +962,14 @@ task.spawn(function()
 
             -- Charge animation replacement
             if customChargeEnabled and customChargeAnimId ~= "" and table.find(chargeAnimIds, animId) then
+                if animId == tostring(customChargeAnimId) then
+                    continue -- already custom anim
+                end
+
                 if tick() - lastReplaceTime.charge >= 3 then
                     lastReplaceTime.charge = tick()
                     track:Stop()
+
                     local newAnim = Instance.new("Animation")
                     newAnim.AnimationId = "rbxassetid://" .. customChargeAnimId
                     local newTrack = animator:LoadAnimation(newAnim)
@@ -846,3 +988,5 @@ game.Players.LocalPlayer.CharacterAdded:Connect(function()
         enableInfiniteStamina()
     end
 end)
+
+Rayfield:LoadConfiguration()
