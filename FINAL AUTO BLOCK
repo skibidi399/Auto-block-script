@@ -296,11 +296,13 @@ Flag = "FlingPower",
 Callback = function(Value) flingPower = Value end
 })
 
+-- Custom Block Animation
 CustomAnimationsTab:CreateInput({
-Name = "Custom Block Animation",
-PlaceholderText = "AnimationId",
-RemoveTextAfterFocusLost = false,
-Callback = function(Text) customBlockAnimId = Text end
+    Name = "Custom Block Animation",
+    PlaceholderText = "AnimationId",
+    RemoveTextAfterFocusLost = false,
+    Flag = "customblockid",
+    Callback = function(Text) customBlockAnimId = Text end
 })
 
 CustomAnimationsTab:CreateToggle({
@@ -310,17 +312,16 @@ Callback = function(Value) customBlockEnabled = Value end
 })
 
 CustomAnimationsTab:CreateInput({
-Name = "Custom Punch Animation (not for M3/M4)",
-PlaceholderText = "AnimationId",
-RemoveTextAfterFocusLost = false,
-Flag = customblockid",
-Callback = function(Text) customPunchAnimId = Text end
+    Name = "Custom Punch Animation (not for M3/M4)",
+    PlaceholderText = "AnimationId",
+    RemoveTextAfterFocusLost = false,
+    Flag = "custompunchid",
+    Callback = function(Text) customPunchAnimId = Text end
 })
 
 CustomAnimationsTab:CreateToggle({
 Name = "Enable Custom Punch Animation",
 CurrentValue = false,
-Flag = "custompunchid",
 Callback = function(Value) customPunchEnabled = Value end
 })
 
