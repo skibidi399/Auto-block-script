@@ -68,7 +68,6 @@ local looseFacing = true
 local detectionRange = 18
 
 local predictiveBlockOn = false
-local detectionRange = 10
 local edgeKillerDelay = 3
 local killerInRangeSince = nil
 local predictiveCooldown = 0
@@ -173,6 +172,85 @@ Flag = "DetectionRange",
 Callback = function(Text)
 detectionRange = tonumber(Text) or detectionRange
 end
+})
+
+local detectionCircles = {} -- store all killer circles
+local killerCirclesVisible = false
+
+-- Function to add circle to a killer
+local function addKillerCircle(killer)
+    if not killer:FindFirstChild("HumanoidRootPart") then return end
+    if detectionCircles[killer] then return end -- already has one
+
+    local circle = Instance.new("CylinderHandleAdornment")
+    circle.Name = "KillerDetectionCircle"
+    circle.Adornee = killer.HumanoidRootPart
+    circle.Color3 = Color3.fromRGB(255, 0, 0) -- red
+    circle.AlwaysOnTop = true
+    circle.ZIndex = 0
+    circle.Transparency = 0.7
+    circle.Radius = detectionRange -- diameter matches detectionRange
+    circle.Height = 0.1 -- flat like a circle
+    circle.CFrame = CFrame.Angles(math.rad(90), 0, 0) -- lay flat
+    circle.Parent = killer.HumanoidRootPart
+
+    detectionCircles[killer] = circle
+end
+
+-- Function to remove circle from a killer
+local function removeKillerCircle(killer)
+    if detectionCircles[killer] then
+        detectionCircles[killer]:Destroy()
+        detectionCircles[killer] = nil
+    end
+end
+
+-- Refresh all circles
+local function refreshKillerCircles()
+    for _, killer in ipairs(KillersFolder:GetChildren()) do
+        if killerCirclesVisible then
+            addKillerCircle(killer)
+        else
+            removeKillerCircle(killer)
+        end
+    end
+end
+
+-- Keep radius updated
+RunService.RenderStepped:Connect(function()
+    for killer, circle in pairs(detectionCircles) do
+        if circle and circle.Parent then
+            circle.Radius = detectionRange
+        end
+    end
+end)
+
+-- Hook into killers being added/removed
+KillersFolder.ChildAdded:Connect(function(killer)
+    if killerCirclesVisible then
+        task.spawn(function()
+            -- Wait until HRP exists (max 5s timeout)
+            local hrp = killer:WaitForChild("HumanoidRootPart", 5)
+            if hrp then
+                addKillerCircle(killer)
+            end
+        end)
+    end
+end)
+
+KillersFolder.ChildRemoved:Connect(function(killer)
+    removeKillerCircle(killer)
+end)
+
+-- Rayfield toggle
+AutoBlockTab:CreateToggle({
+    Name = "Range Visual",
+    CurrentValue = false,
+    Flag = "KillerCircleToggle",
+    Callback = function(state)
+        killerCirclesVisible = state
+        refreshKillerCircles()
+    end
 })
 
 AutoBlockTab:CreateParagraph({
@@ -862,7 +940,7 @@ RunService.RenderStepped:Connect(function()
 
                             task.spawn(function()
                                 local start = tick()
-                                while tick() - start < 1.3 do
+                                while tick() - start < 0.5 do
                                     if myRoot and root and root.Parent then
                                         local predictedPos = root.Position + (root.CFrame.LookVector * predictionValue)
                                         myRoot.CFrame = CFrame.lookAt(myRoot.Position, predictedPos)
