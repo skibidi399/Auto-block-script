@@ -570,6 +570,26 @@ end)()
 local soundHooks = {}     -- [Sound] = {playedConn, propConn, destroyConn}
 local soundBlockedUntil = {} -- [Sound] = timestamp when we can block again (throttle)
 
+local function getNearestKillerRoot(maxDist)
+    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return nil end
+
+    local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+
+    local closest, closestDist = nil, maxDist or math.huge
+    for _, killer in ipairs(killersFolder:GetChildren()) do
+        local hrp = killer:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = (hrp.Position - myRoot.Position).Magnitude
+            if dist < closestDist then
+                closest, closestDist = hrp, dist
+            end
+        end
+    end
+    return closest
+end
+
 local function extractNumericSoundId(sound)
     if not sound or not sound.SoundId then return nil end
     local sid = tostring(sound.SoundId)
@@ -603,6 +623,15 @@ local function getSoundWorldPosition(sound)
     return nil, nil
 end
 
+local function getCharacterFromDescendant(inst)
+    if not inst then return nil end
+    local model = inst:FindFirstAncestorOfClass("Model")
+    if model and model:FindFirstChildOfClass("Humanoid") then
+        return model
+    end
+    return nil
+end
+
 local function attemptBlockForSound(sound)
     if not autoBlockAudioOn then return end
     if not sound or not sound:IsA("Sound") then return end
@@ -616,7 +645,7 @@ local function attemptBlockForSound(sound)
     local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
 
-    -- Throttle one block per sound for a short window
+    -- Throttle: don’t spam block
     if soundBlockedUntil[sound] and tick() < soundBlockedUntil[sound] then
         return
     end
@@ -625,19 +654,21 @@ local function attemptBlockForSound(sound)
     local shouldBlock = false
     local facingOK = true
 
-    if soundPos then
-        local dist = (myRoot.Position - soundPos).Magnitude
-        if dist <= detectionRange then
+    if soundPos and soundPart then
+        -- ✅ check if this part belongs to a Player character
+        local char = getCharacterFromDescendant(soundPart)
+        local plr = char and Players:GetPlayerFromCharacter(char)
+
+        if not plr or plr == lp then
+            return -- not a valid enemy player
+        end
+        local nearestRoot = getNearestKillerRoot(detectionRange)
+        if nearestRoot and (nearestRoot.Position - soundPos).Magnitude <= detectionRange then
             shouldBlock = true
-            -- Only do facing check if we have a BasePart to use (soundPart)
-            if facingCheckEnabled and soundPart and soundPart:IsA("BasePart") then
+            if facingCheckEnabled then
                 facingOK = isFacing(myRoot, soundPart)
             end
         end
-    else
-        -- No position available -> block anyway (per your request)
-        shouldBlock = true
-        facingOK = true
     end
 
     if shouldBlock and facingOK then
@@ -645,7 +676,6 @@ local function attemptBlockForSound(sound)
         if customBlockEnabled and customBlockAnimId ~= "" then
             playCustomAnim(customBlockAnimId, false)
         end
-        -- throttle: don't spam block for the same sound
         soundBlockedUntil[sound] = tick() + 1.2
     end
 end
