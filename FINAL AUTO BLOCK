@@ -277,7 +277,7 @@ local function addKillerCircle(killer)
     circle.AlwaysOnTop = true
     circle.ZIndex = 0
     circle.Transparency = 0.7
-    circle.Radius = detectionRange / 2 -- diameter matches detectionRange
+    circle.Radius = detectionRange / 1.5 -- diameter matches detectionRange
     circle.Height = 0.1 -- flat like a circle
     circle.CFrame = CFrame.Angles(math.rad(90), 0, 0) -- lay flat
     circle.Parent = killer.HumanoidRootPart
@@ -308,7 +308,7 @@ end
 RunService.RenderStepped:Connect(function()
     for killer, circle in pairs(detectionCircles) do
         if circle and circle.Parent then
-            circle.Radius = detectionRange / 2
+            circle.Radius = detectionRange / 1.5
         end
     end
 end)
