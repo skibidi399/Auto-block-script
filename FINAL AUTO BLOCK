@@ -128,6 +128,8 @@ local function enableInfiniteStamina()
     end)
 end
 
+-- ===== performance improvements for Sound Auto Block =====
+-- cached UI / refs
 local cachedPlayerGui = PlayerGui
 local cachedPunchBtn, cachedBlockBtn, cachedCharges, cachedCooldown = nil, nil, nil, nil
 local detectionRangeSq = detectionRange * detectionRange
@@ -162,6 +164,26 @@ end
 lp.CharacterAdded:Connect(function()
     task.delay(0.5, refreshUIRefs)
 end)
+
+-- make detection range squared when user changes it
+-- modify your existing DetectionRange callback to also set detectionRangeSq
+-- (if you already have a callback, add the detectionRangeSq update)
+-- Example: where you set detectionRange = tonumber(Text) or detectionRange
+-- change to:
+-- detectionRange = tonumber(Text) or detectionRange
+-- detectionRangeSq = detectionRange * detectionRange
+
+-- also do the same for any other place where detectionRange can change (predictive tab etc.)
+
+
+-- Hooked sound routine remains the same but you can remove the pcall(attemptBlockForSound, sound)
+-- in the Play/IsPlaying handlers if you want micro speedups — pcall is safe but slightly slower.
+-- Example change in hookSound: replace pcall(attemptBlockForSound, sound) with:
+-- task.spawn(attemptBlockForSound, sound)
+-- or:
+-- local ok, err = pcall(attemptBlockForSound, sound)
+-- if not ok then warn(err) end
+
 
 -- GUI Toggles
 AutoBlockTab:CreateToggle({
@@ -341,7 +363,6 @@ PredictiveTab:CreateInput({
         local num = tonumber(text)
         if num then
             detectionRange = num
-            detectionRangeSq = detectionRange * detectionRange
         end
     end,
 })
@@ -789,7 +810,7 @@ end
 
 
 
-- ===== optimized attemptBlockForSound =====
+-- ===== optimized attemptBlockForSound =====
 local function attemptBlockForSound(sound)
     if not autoBlockAudioOn then return end
     if not sound or not sound:IsA("Sound") then return end
