@@ -80,7 +80,7 @@ local edgeKillerDelay = 3
 local killerInRangeSince = nil
 local predictiveCooldown = 0
 
-local killerNames = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli"}
+local killerNames = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli", "Slasher"}
 local autoPunchOn = false
 local flingPunchOn = false
 local flingPower = 10000
