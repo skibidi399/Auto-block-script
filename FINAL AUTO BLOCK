@@ -417,7 +417,7 @@ FakeBlockTab:CreateButton({
             local fakeGui = PlayerGui:FindFirstChild("FakeBlockGui")
             if not fakeGui then
                 local success, result = pcall(function()
-                    return loadstring(game:HttpGet("https://pastebin.com/raw/ztnYv27k"))()
+                    return loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Auto-block-script/refs/heads/main/fakeblock"))()
                 end)
                 if not success then
                     warn("❌ Failed to load Fake Block GUI:", result)
