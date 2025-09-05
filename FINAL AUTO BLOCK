@@ -62,7 +62,8 @@ local autoBlockTriggerSounds = {
     ["109431876587852"] = true,
     ["115026634746636"] = true,
     ["119942598489800"] = true,
-    ["109348678063422"] = true
+    ["109348678063422"] = true,
+    ["85853080745515"] = true
 }
 
 -- Prevent repeated aim triggers for the same animation track
