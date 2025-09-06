@@ -6,6 +6,12 @@ local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 local PlayerGui = lp:WaitForChild("PlayerGui")
 local Humanoid, Animator
+local StarterGui  = game:GetService("StarterGui")
+local TestService = game:GetService("TestService")
+
+-- Place in ReplicatedFirst (LocalScript
+
+-- Continue script 
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
@@ -54,16 +60,10 @@ local autoBlockTriggerSounds = {
     ["81702359653578"] = true,
     ["108610718831698"] = true,
     ["112395455254818"] = true,
-    ["136323728355613"] = true,
-    ["81702359653578"] = true,
-    ["86174610237192"] = true,
-    ["95079963655241"] = true,
-    ["101199185291628"] = true,
     ["109431876587852"] = true,
-    ["115026634746636"] = true,
-    ["119942598489800"] = true,
     ["109348678063422"] = true,
-    ["85853080745515"] = true
+    ["85853080745515"] = true,
+    ["12222216"] = true,
 }
 
 -- Prevent repeated aim triggers for the same animation track
@@ -279,24 +279,31 @@ local detectionCircles = {} -- store all killer circles
 local killerCirclesVisible = false
 
 -- Function to add circle to a killer
+-- replace your addKillerCircle with this
 local function addKillerCircle(killer)
     if not killer:FindFirstChild("HumanoidRootPart") then return end
-    if detectionCircles[killer] then return end -- already has one
+    if detectionCircles[killer] then return end
 
+    local hrp = killer.HumanoidRootPart
     local circle = Instance.new("CylinderHandleAdornment")
     circle.Name = "KillerDetectionCircle"
-    circle.Adornee = killer.HumanoidRootPart
-    circle.Color3 = Color3.fromRGB(255, 0, 0) -- red
+    circle.Adornee = hrp
+    circle.Color3 = Color3.fromRGB(255, 0, 0)
     circle.AlwaysOnTop = true
-    circle.ZIndex = 0
-    circle.Transparency = 0.7
-    circle.Radius = detectionRange / 1.5 -- diameter matches detectionRange
-    circle.Height = 0.1 -- flat like a circle
-    circle.CFrame = CFrame.Angles(math.rad(90), 0, 0) -- lay flat
-    circle.Parent = killer.HumanoidRootPart
+    circle.ZIndex = 1
+    circle.Transparency = 0.6
+    circle.Radius = detectionRange            -- <- use detectionRange exactly
+    circle.Height = 0.12                      -- thin disc
+    -- place the disc at the feet of the HumanoidRootPart (CFrame is relative to Adornee)
+    local yOffset = -(hrp.Size.Y / 2 + 0.05)  -- a little below HRP origin
+    circle.CFrame = CFrame.new(0, yOffset, 0) * CFrame.Angles(math.rad(90), 0, 0)
+    circle.Parent = hrp
 
     detectionCircles[killer] = circle
 end
+
+-- Update radius when detectionRange changes (and on render)
+
 
 -- Function to remove circle from a killer
 local function removeKillerCircle(killer)
@@ -321,7 +328,7 @@ end
 RunService.RenderStepped:Connect(function()
     for killer, circle in pairs(detectionCircles) do
         if circle and circle.Parent then
-            circle.Radius = detectionRange / 1.5
+            circle.Radius = detectionRange
         end
     end
 end)
