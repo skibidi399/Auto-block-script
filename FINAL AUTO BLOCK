@@ -87,6 +87,19 @@ local autoBlockAudioOn = false
 local doubleblocktech = false
 local looseFacing = true
 local detectionRange = 18
+local Debris = game:GetService("Debris")
+-- Anti-flick toggle state
+local antiFlickOn = false
+-- how many anti-flick parts to spawn (default 4)
+local antiFlickParts = 4
+
+-- optional: base distance in front of killer for the first part
+local antiFlickBaseOffset = 2.7
+
+-- optional: distance step between successive parts
+local antiFlickOffsetStep = 0
+
+local antiFlickDelay = 0 -- seconds to wait before parts spawn (default 0 = instant)
 
 local predictiveBlockOn = false
 local edgeKillerDelay = 3
@@ -262,6 +275,69 @@ Options = {"Loose", "Strict"},
 CurrentOption = "Loose",
 Flag = "FacingCheckMode",
 Callback = function(Option) looseFacing = Option == "Loose" end
+})
+
+AutoBlockTab:CreateToggle({
+    Name = "Better Detection (doesn't use detectrange) (BD)",
+    CurrentValue = false,
+    Flag = "AntiFlickToggle",
+    Callback = function(state)
+        antiFlickOn = state
+    end,
+})
+
+AutoBlockTab:CreateSlider({
+    Name = "How many block parts that spawn (BD)",
+    Range = {1, 16},       -- min,max parts the player can pick
+    Increment = 1,         -- step size (integer only)
+    Suffix = "parts",
+    CurrentValue = 4,      -- default shown in UI
+    Flag = "AntiFlickParts",
+    Callback = function(val)
+        antiFlickParts = math.max(1, math.floor(val))
+    end,
+})
+
+AutoBlockTab:CreateInput({
+    Name = "delay before block parts spawn (BD) (seconds)",
+    PlaceholderText = "0",
+    RemoveTextAfterFocusLost = false,
+    Flag = "AntiFlickDelay",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            antiFlickDelay = math.max(0, num) -- don’t allow negative
+        end
+    end,
+})
+
+local stagger  = 0.02
+
+AutoBlockTab:CreateInput({
+    Name = "delay before each block parts spawns (BD) (seconds)",
+    PlaceholderText = "0.02",
+    RemoveTextAfterFocusLost = false,
+    Flag = "AntiFlickDelayEachParts",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            stagger = math.max(0, num) -- don’t allow negative
+        end
+    end,
+})
+
+
+AutoBlockTab:CreateInput({
+    Name = "how much studs infront killer the block parts are gonna spawn (BD) (studs)",
+    PlaceholderText = "2.7",
+    RemoveTextAfterFocusLost = false,
+    Flag = "AntiFlickDistanceInfront",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            antiFlickBaseOffset = math.max(0, num) -- don’t allow negative
+        end
+    end,
 })
 
 AutoBlockTab:CreateInput({
@@ -843,15 +919,24 @@ local function getCharacterFromDescendant(inst)
     return nil
 end
 
-
+local function isPointInsidePart(part, point)
+    if not (part and point) then return false end
+    -- convert world point to part-local coordinates and test against half-extents
+    local rel = part.CFrame:PointToObjectSpace(point)
+    local half = part.Size * 0.5
+    return math.abs(rel.X) <= half.X + 0.001 and
+           math.abs(rel.Y) <= half.Y + 0.001 and
+           math.abs(rel.Z) <= half.Z + 0.001
+end
 
 -- ===== optimized attemptBlockForSound =====
 local function attemptBlockForSound(sound)
+    -- quick guards
     if not autoBlockAudioOn then return end
     if not sound or not sound:IsA("Sound") then return end
     if not sound.IsPlaying then return end
 
-    -- id early (string of digits)
+    -- resolve numeric id and check if it's in the trigger list
     local id = extractNumericSoundId(sound)
     if not id or not autoBlockTriggerSounds[id] then return end
 
@@ -859,49 +944,116 @@ local function attemptBlockForSound(sound)
     local t = tick()
     if soundBlockedUntil[sound] and t < soundBlockedUntil[sound] then return end
 
-    -- get my root fast
-    local myChar = lp.Character
+    -- local player root
+    local lp = Players.LocalPlayer
+    local myChar = lp and lp.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
 
-    -- get world position and part
+    -- sound world position and the part that produced it
     local soundPos, soundPart = getSoundWorldPosition(sound)
     if not soundPos or not soundPart then return end
 
-    -- quick check: is sound coming from a player character (not an object/environment)
+    -- make sure the sound came from a player character (killer)
     local char = getCharacterFromDescendant(soundPart)
     local plr = char and Players:GetPlayerFromCharacter(char)
     if not plr or plr == lp then return end
 
-    -- get the originating HRP and compare squared distance
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    local dvec = hrp.Position - myRoot.Position
-    local distSq = dvec.X * dvec.X + dvec.Y * dvec.Y + dvec.Z * dvec.Z
-    if distSq > detectionRangeSq then
+    -- helper & services (kept local to avoid dependency on external helpers)
+    local Debris = game:GetService("Debris")
+
+    -- ---------------------------
+    -- ANTI-FLICK MODE: spawn N parts sequentially in front of the killer
+    -- ---------------------------
+    if antiFlickOn then
+        local partSize = Vector3.new(5.5, 7.5, 8.5)    -- change to your preferred size
+        local count = math.max(1, antiFlickParts or 4)
+        local base  = antiFlickBaseOffset or 2.5
+        local step  = antiFlickOffsetStep or 0.2
+        local lifeTime = 0.2
+
+        task.spawn(function()
+            local blocked = false
+
+            task.wait(antiFlickDelay)
+            for i = 1, count do
+                if not hrp or not myRoot then break end
+
+                local dist = base + (i - 1) * step
+                local spawnPos = hrp.Position + (hrp.CFrame.LookVector * dist)
+
+                local part = Instance.new("Part")
+                part.Name = "AntiFlickZone"
+                part.Size = partSize
+                part.Transparency = 0.45
+                part.Anchored = true
+                part.CanCollide = false
+                part.CFrame = CFrame.new(spawnPos, hrp.Position)
+                part.BrickColor = BrickColor.new("Bright blue")
+                part.Parent = workspace
+
+                Debris:AddItem(part, lifeTime)
+
+                -- containment/touch check
+                if isPointInsidePart(part, myRoot.Position) then
+                    blocked = true
+                else
+                    local touching = {}
+                    pcall(function() touching = myRoot:GetTouchingParts() end)
+                    for _, p in ipairs(touching) do
+                        if p == part then
+                            blocked = true
+                            break
+                        end
+                    end
+                end
+
+                if blocked then
+                    if not (facingCheckEnabled and not isFacing(myRoot, hrp)) then
+                        fireRemoteBlock()
+                        if doubleblocktech and cachedCharges and cachedCharges.Text == "1" then
+                            fireRemotePunch()
+                        end
+                        soundBlockedUntil[sound] = t + 1.2
+                    end
+                    break
+                end
+
+                task.wait(stagger)
+            end
+        end)
         return
     end
 
-    -- block cooldown UI check (cached)
+    -- ---------------------------
+    -- NORMAL mode: detectionRange logic
+    -- ---------------------------
+    local dvec = hrp.Position - myRoot.Position
+    local distSq = dvec.X * dvec.X + dvec.Y * dvec.Y + dvec.Z * dvec.Z
+    if detectionRangeSq and distSq > detectionRangeSq then
+        return
+    end
+
+    -- cooldown UI check
     if cachedCooldown and cachedCooldown.Text ~= "" then
         return
     end
 
-    -- facing check (use the same existing function)
+    -- facing check
     if facingCheckEnabled and not isFacing(myRoot, hrp) then
         return
     end
 
-    -- all checks passed -> block
+    -- perform block
     fireRemoteBlock()
-
-    -- double tech if enabled and cachedCharges present
     if doubleblocktech and cachedCharges and cachedCharges.Text == "1" then
         fireRemotePunch()
     end
 
-    -- throttle this sound for a short time to avoid spamming
+    -- throttle
     soundBlockedUntil[sound] = t + 1.2
 end
 
@@ -911,12 +1063,12 @@ local function hookSound(sound)
 
     local playedConn = sound.Played:Connect(function()
         -- handle immediate play
-        pcall(attemptBlockForSound, sound)
+        task.spawn(attemptBlockForSound, sound)
     end)
 
     local propConn = sound:GetPropertyChangedSignal("IsPlaying"):Connect(function()
         if sound.IsPlaying then
-            pcall(attemptBlockForSound, sound)
+            task.spawn(attemptBlockForSound, sound)
         end
     end)
 
@@ -934,7 +1086,7 @@ local function hookSound(sound)
 
     -- If it's already playing right now, check it immediately
     if sound.IsPlaying then
-        task.spawn(function() pcall(attemptBlockForSound, sound) end)
+        task.spawn(function() task.spawn(attemptBlockForSound, sound) end)
     end
 end
 
@@ -1076,7 +1228,7 @@ RunService.RenderStepped:Connect(function()
             if animId == "72722244508749" or animId == "96959123077498" then
                 local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
                 if myRoot then
-                    local killers = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli"}
+                    local killers = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli", "Slasher"}
                     for _, name in ipairs(killers) do
                         local killer = workspace:FindFirstChild("Players")
                             and workspace.Players:FindFirstChild("Killers")
@@ -1092,7 +1244,7 @@ RunService.RenderStepped:Connect(function()
                                         local myRoot = lp.Character.HumanoidRootPart
                                         local targetHRP = killer.HumanoidRootPart
                                         local direction = targetHRP.CFrame.LookVector
-                                        local tpPosition = targetHRP.Position + direction * 6
+                                        local tpPosition = targetHRP.Position + direction * 4
                                         myRoot.CFrame = CFrame.new(tpPosition)
                                     end
                                     task.wait()
