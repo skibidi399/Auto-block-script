@@ -940,6 +940,12 @@ MiscTab:CreateToggle({
     end
 })
 
+MiscTab:CreateButton({
+    Name = "FPS Booster (creds to josh, VERY RECCOMMENDED TO USE)",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/JoshzzAlteregooo/JoshzzFpsBoosterVersion3/refs/heads/main/JoshzzNewFpsBooster"))()
+    end,
+})
 
 local function addESP(obj)
     if not obj:IsA("Model") then return end
