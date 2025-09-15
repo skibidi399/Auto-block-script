@@ -1,3 +1,5 @@
+
+
 -- Auto Block Rayfield Script (Full Features)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -940,12 +942,6 @@ MiscTab:CreateToggle({
     end
 })
 
-MiscTab:CreateButton({
-    Name = "FPS Booster (creds to josh, VERY RECCOMMENDED TO USE)",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/JoshzzAlteregooo/JoshzzFpsBoosterVersion3/refs/heads/main/JoshzzNewFpsBooster"))()
-    end,
-})
 
 local function addESP(obj)
     if not obj:IsA("Model") then return end
@@ -1272,10 +1268,63 @@ local _LP = Players.LocalPlayer
 local _isFacing = isFacing
 local _fireRemoteBlock = fireRemoteBlock
 local _fireRemotePunch = fireRemotePunch
+local _cachedBlockBtn = cachedBlockBtn
 local _cachedCooldown = cachedCooldown            -- these may be updated by refreshUIRefs
 local _cachedCharges = cachedCharges
 local LOCAL_BLOCK_COOLDOWN = 0.7   -- optimistic local cooldown (tune as needed)
 local lastLocalBlockTime = 0
+
+-- Robust GUI-based activation (NO remotes)
+local function tryActivateButton(btn)
+    if not btn then return false end
+    -- safe pcall for :Activate()
+    pcall(function() btn:Activate() end)
+
+    -- Try exploit getconnections if available (many executors provide this)
+    local ok, conns = pcall(function()
+        if type(getconnections) == "function" then
+            return getconnections(btn.MouseButton1Click)
+        end
+        return nil
+    end)
+
+    if ok and conns then
+        for _, conn in ipairs(conns) do
+            pcall(function()
+                -- common field names in exploit connection wrappers
+                if conn.Function then
+                    conn.Function()
+                elseif conn.func then
+                    conn.func()
+                elseif conn.Fire then
+                    conn.Fire()
+                end
+            end)
+        end
+    end
+
+    -- As a last resort try firing Activated manually (some games use .Activated)
+    pcall(function()
+        if btn.Activated then
+            btn.Activated:Fire()
+        end
+    end)
+
+    return true
+end
+
+-- Replace previous fireRemoteBlock / fireRemotePunch with these:
+local function fireGuiBlock()
+    if cachedBlockBtn and tryActivateButton(cachedBlockBtn) then return end
+    -- if GUI not found, attempt a guarded remote call (only if you still want remote fallback)
+    -- but since you said remotes are patched, DON'T call remotes here.
+    -- pcall(function() ReplicatedStorage.Modules.Network.RemoteEvent:FireServer("UseActorAbility","Block") end)
+end
+
+local function fireGuiPunch()
+    if cachedPunchBtn and tryActivateButton(cachedPunchBtn) then return end
+    -- same note as above for remotes
+end
 
 -- modify hookSound: store extracted id once
 
@@ -1329,29 +1378,11 @@ local function attemptBlockForSound(sound, idParam)
         return
     end
 
-    -- PLAY A LOCAL BLOCK ANIMATION (optional optimistic feedback)
-    -- You can comment this out if you don't want to play local anims.
-    -- If you have custom block anim enabled, use that; otherwise use a default anim id.
-    pcall(function()
-        local humanoid = myChar and myChar:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            -- use a very short-lived local animation for instant feedback
-            local animIdToUse = (customBlockEnabled and customBlockAnimId ~= "") and customBlockAnimId or (blockAnimIds[1] or "")
-            if animIdToUse ~= "" then
-                local anim = Instance.new("Animation")
-                anim.AnimationId = "rbxassetid://" .. tostring(animIdToUse)
-                local track = humanoid:LoadAnimation(anim)
-                track:Play()
-                -- don't store track (cleanup happens naturally)
-            end
-        end
-    end)
-
     -- FIRE remote calls immediately (server handles authoritative checks)
-    _fireRemoteBlock()
+    fireGuiBlock()
 
     if doubleblocktech and cachedCharges and cachedCharges.Text == "1" then
-        _fireRemotePunch()
+        fireGuiPunch()
     end
 
     -- optimistic local time-blocking so we don't spam while waiting server
@@ -1462,10 +1493,10 @@ local function attemptBDParts(sound)
 
                 if blocked then
                     if not (facingCheckEnabled and not isFacing(myRoot, hrp)) then
-                        fireRemoteBlock()
+                        fireGuiBlock()
                         
                         if doubleblocktech and cachedCharges and cachedCharges.Text == "1" then
-                            fireRemotePunch()
+                            fireGuiPunch()
                         end
                         soundBlockedUntil[sound] = t + 1.2
                     end
