@@ -1748,7 +1748,7 @@ RunService.RenderStepped:Connect(function()
                     if root and myRoot and (root.Position - myRoot.Position).Magnitude <= 10 then
 
                         -- Trigger punch GUI button
-                        fireRemotePunch()
+                        fireGuiPunch()
 
                         -- Fling Punch: Constant TP 2 studs in front of killer for 1 second
                         if flingPunchOn then
