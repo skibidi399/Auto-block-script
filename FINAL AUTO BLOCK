@@ -126,11 +126,11 @@ local _savedManualAntiFlickDelay = antiFlickDelay or 0 -- keep user's manual val
 -- map of killer name (lowercase) -> antiFlickDelay value you requested
 local killerDelayMap = {
     ["c00lkidd"] = 0,
-    ["jason"]    = 0.005,
-    ["slasher"]  = 0.005,
-    ["1x1x1x1"]  = 0.1,
-    ["johndoe"]  = 0.2,
-    ["noli"]     = 0.14,
+    ["jason"]    = 0.01,
+    ["slasher"]  = 0.01,
+    ["1x1x1x1"]  = 0.15,
+    ["johndoe"]  = 0.33,
+    ["noli"]     = 0.2,
 }
 
 local predictiveBlockOn = false
