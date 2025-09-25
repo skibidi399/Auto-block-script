@@ -153,6 +153,9 @@ local edgeKillerDelay = 3
 local killerInRangeSince = nil
 local predictiveCooldown = 0
 
+local Dspeed = 5.6 -- you can tweak these numbers
+local Ddelay = 0
+
 local killerNames = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli", "Slasher"}
 local autoPunchOn = false
 local messageWhenAutoPunchOn = false
@@ -895,12 +898,28 @@ local HITBOX_DRAG_DURATION = 1.4
 local HITBOX_DETECT_RADIUS = 6
 
 TechTab:CreateToggle({
-    Name = "Hitbox Dragging tech",
+    Name = "Hitbox Dragging tech (HDT)",
     CurrentValue = false,
     Flag = "HitboxDraggingToggle",
     Callback = function(state)
         hitboxDraggingTech = state
     end,
+})
+
+TechTab:CreateInput({
+    Name = "HDT speed",
+    PlaceholderText = "5.6",
+    RemoveTextAfterFocusLost = false,
+    Flag = "HDTspeed",
+    Callback = function(Text) Dspeed = Text end
+})
+
+TechTab:CreateInput({
+    Name = "HDT delay",
+    PlaceholderText = "0",
+    RemoveTextAfterFocusLost = false,
+    Flag = "HDTdelay",
+    Callback = function(Text) Ddelay = Text end
 })
 
 TechTab:CreateParagraph({
@@ -1886,22 +1905,19 @@ end
 
 local _getSoundWorldPosition = getSoundWorldPosition
 
-
--- proceed: plr is a non-local player who produced the sound
-
--- optimized attemptBlockForSound
-local function attemptBlockForSound(sound, idParam)
-    -- quick guards
+-- shared heavy work helper (local to file/scope)
+local function _attemptForSound(sound, idParam, mode)
+    -- quick guards (keep same order)
     if not autoBlockAudioOn then return end
     if not sound or not sound:IsA("Sound") then return end
     if not sound.IsPlaying then return end
 
-    -- localize hot globals/funcs
+    -- hot locals
     local now = tick()
     local hooks = soundHooks
-    local hook = hooks[sound]
+    local hook = hooks and hooks[sound]
 
-    -- get id (prefer cached id)
+    -- id resolution (prefer cached)
     local id = idParam or (hook and hook.id) or extractNumericSoundId(sound)
     if not id or not autoBlockTriggerSounds[id] then return end
 
@@ -1911,32 +1927,38 @@ local function attemptBlockForSound(sound, idParam)
     -- global local cooldown
     if now - lastLocalBlockTime < AUDIO_LOCAL_COOLDOWN then return end
 
-    -- ensure UI refs are present (cheap call)
-    if not cachedBlockBtn or not cachedCooldown or not cachedCharges then
-        refreshUIRefs()
+    -- ensure UI refs depending on mode (preserve original checks)
+    if mode == "Block" or mode == "Charge" then
+        if not cachedBlockBtn or not cachedCooldown or not cachedCharges then
+            refreshUIRefs()
+        end
+    elseif mode == "Clone" then
+        if not cachedCloneBtn then
+            refreshUIRefs()
+        end
     end
 
+    -- local player root
     local lpLocal = _LP or Players.LocalPlayer
     local myChar = lpLocal and lpLocal.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
 
-    -- Try to use cached character/hrp mapped on hook; if missing, resolve once and cache
+    -- cached hook mapping (may be nil)
     local char = hook and hook.char
     local hrp = hook and hook.hrp
 
     if not hrp then
-        -- expensive path: we only do this when cache missing (rare)
+        -- expensive path: only when cache missing
         local soundPos, soundPart = getSoundWorldPosition(sound)
         if not soundPart then return end
         char = getCharacterFromDescendant(soundPart)
         hrp = char and char:FindFirstChild("HumanoidRootPart")
-        -- cache mapping so next time it is O(1)
+        -- cache mapping for next time
         if hook then
             hook.char = char
             hook.hrp = hrp
         else
-            -- create minimal entry in soundHooks so we can cache future reads
             soundHooks[sound] = { id = id, char = char, hrp = hrp }
             hook = soundHooks[sound]
         end
@@ -1944,21 +1966,19 @@ local function attemptBlockForSound(sound, idParam)
 
     if not hrp then return end
 
-    -- predicted position using velocity (fast scalar math)
+    -- predicted position using velocity (unrolled for speed)
     local v = hrp.Velocity or Vector3.new()
     local predictedX = hrp.Position.X + v.X * AUDIO_PREDICT_DT
     local predictedY = hrp.Position.Y + v.Y * AUDIO_PREDICT_DT
     local predictedZ = hrp.Position.Z + v.Z * AUDIO_PREDICT_DT
 
-    -- compute squared distance from myRoot to predicted pos (fast, no sqrt)
     local dx = predictedX - myRoot.Position.X
     local dy = predictedY - myRoot.Position.Y
     local dz = predictedZ - myRoot.Position.Z
     local distSqPred = dx*dx + dy*dy + dz*dz
 
-    -- use detectionRangeSq (make sure detectionRangeSq kept updated elsewhere)
+    -- detection range check (preserve grace fallback logic)
     if detectionRangeSq and distSqPred > detectionRangeSq then
-        -- quick extra-grace using non-predicted dist (avoid false positives for far-off sounds)
         local dx2 = hrp.Position.X - myRoot.Position.X
         local dy2 = hrp.Position.Y - myRoot.Position.Y
         local dz2 = hrp.Position.Z - myRoot.Position.Z
@@ -1969,255 +1989,62 @@ local function attemptBlockForSound(sound, idParam)
         end
     end
 
+    -- verify sound world position (kept as in original)
     local soundPos, soundPart = _getSoundWorldPosition(sound)
     if not soundPart then return end
 
-    -- climb to the nearest Model and verify it looks like a character
+    -- climb to Model & validate humanoid
     local model = soundPart and soundPart:FindFirstAncestorOfClass("Model") or nil
     if not model then return end
 
-    -- ensure it is probably a character
     local humanoid = model:FindFirstChildWhichIsA("Humanoid")
     if not humanoid then return end
 
     local plr = Players:GetPlayerFromCharacter(model)
     if not plr or plr == lp then return end
 
-    -- quick facing check using cached function
+    -- facing check (cached _isFacing)
     if facingCheckEnabled and not _isFacing(myRoot, hrp) then
         return
     end
 
-    -- FAST PATH: trigger GUI block (no heavy ops). fireGuiBlock handles both GUI and exploit activation.
-    fireGuiBlock()
+    -- mode-specific extra checks & actions (preserve prints and exact calls)
+    if mode == "Block" then
+        fireGuiBlock()
+    elseif mode == "Charge" then
+        if cachedChargeBtn and cachedChargeBtn:FindFirstChild("CooldownTime") and cachedChargeBtn.CooldownTime.Text == "" then
+            print("yay")
+        else
+            return
+        end
+        fireGuiCharge()
+        startChargeAimUntilChargeEnds(0.4)
+    elseif mode == "Clone" then
+        if cachedCloneBtn and cachedCloneBtn:FindFirstChild("CooldownTime") and cachedCloneBtn.CooldownTime.Text == "" then
+            print("yay")
+        else
+            return
+        end
+        fireGuiClone()
+        startChargeAimUntilChargeEnds(0.4)
+    end
 
-    -- optimistic local timestamp & throttle this sound
+    -- optimistic local timestamp & throttle this sound (identical)
     lastLocalBlockTime = now
     soundBlockedUntil[sound] = now + AUDIO_SOUND_THROTTLE
+end
+
+-- public wrappers to preserve original names/behavior
+local function attemptBlockForSound(sound, idParam)
+    return _attemptForSound(sound, idParam, "Block")
 end
 
 local function attemptChargeForSound(sound, idParam)
-    -- quick guards
-    if not autoBlockAudioOn then return end
-    if not sound or not sound:IsA("Sound") then return end
-    if not sound.IsPlaying then return end
-
-    -- localize hot globals/funcs
-    local now = tick()
-    local hooks = soundHooks
-    local hook = hooks[sound]
-
-    -- get id (prefer cached id)
-    local id = idParam or (hook and hook.id) or extractNumericSoundId(sound)
-    if not id or not autoBlockTriggerSounds[id] then return end
-
-    -- per-sound throttle
-    if soundBlockedUntil[sound] and now < soundBlockedUntil[sound] then return end
-
-    -- global local cooldown
-    if now - lastLocalBlockTime < AUDIO_LOCAL_COOLDOWN then return end
-
-    -- ensure UI refs are present (cheap call)
-    if not cachedBlockBtn or not cachedCooldown or not cachedCharges then
-        refreshUIRefs()
-    end
-
-    local lpLocal = _LP or Players.LocalPlayer
-    local myChar = lpLocal and lpLocal.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
-
-    -- Try to use cached character/hrp mapped on hook; if missing, resolve once and cache
-    local char = hook and hook.char
-    local hrp = hook and hook.hrp
-
-    if not hrp then
-        -- expensive path: we only do this when cache missing (rare)
-        local soundPos, soundPart = getSoundWorldPosition(sound)
-        if not soundPart then return end
-        char = getCharacterFromDescendant(soundPart)
-        hrp = char and char:FindFirstChild("HumanoidRootPart")
-        -- cache mapping so next time it is O(1)
-        if hook then
-            hook.char = char
-            hook.hrp = hrp
-        else
-            -- create minimal entry in soundHooks so we can cache future reads
-            soundHooks[sound] = { id = id, char = char, hrp = hrp }
-            hook = soundHooks[sound]
-        end
-    end
-
-    if not hrp then return end
-
-    -- predicted position using velocity (fast scalar math)
-    local v = hrp.Velocity or Vector3.new()
-    local predictedX = hrp.Position.X + v.X * AUDIO_PREDICT_DT
-    local predictedY = hrp.Position.Y + v.Y * AUDIO_PREDICT_DT
-    local predictedZ = hrp.Position.Z + v.Z * AUDIO_PREDICT_DT
-
-    -- compute squared distance from myRoot to predicted pos (fast, no sqrt)
-    local dx = predictedX - myRoot.Position.X
-    local dy = predictedY - myRoot.Position.Y
-    local dz = predictedZ - myRoot.Position.Z
-    local distSqPred = dx*dx + dy*dy + dz*dz
-
-    -- use detectionRangeSq (make sure detectionRangeSq kept updated elsewhere)
-    if detectionRangeSq and distSqPred > detectionRangeSq then
-        -- quick extra-grace using non-predicted dist (avoid false positives for far-off sounds)
-        local dx2 = hrp.Position.X - myRoot.Position.X
-        local dy2 = hrp.Position.Y - myRoot.Position.Y
-        local dz2 = hrp.Position.Z - myRoot.Position.Z
-        local distSqNow = dx2*dx2 + dy2*dy2 + dz2*dz2
-        local grace = (detectionRange + 3) * (detectionRange + 3)
-        if distSqNow > grace then
-            return
-        end
-    end
-
-    local soundPos, soundPart = _getSoundWorldPosition(sound)
-    if not soundPart then return end
-
-    -- climb to the nearest Model and verify it looks like a character
-    local model = soundPart and soundPart:FindFirstAncestorOfClass("Model") or nil
-    if not model then return end
-
-    -- ensure it is probably a character
-    local humanoid = model:FindFirstChildWhichIsA("Humanoid")
-    if not humanoid then return end
-
-    local plr = Players:GetPlayerFromCharacter(model)
-    if not plr or plr == lp then return end
-
-    -- quick facing check using cached function
-    if facingCheckEnabled and not _isFacing(myRoot, hrp) then
-        return
-    end
-    
-    if cachedChargeBtn and cachedChargeBtn:FindFirstChild("CooldownTime") and cachedChargeBtn.CooldownTime.Text == "" then
-        print("yay")
-    else
-        return
-    end
-
-    -- FAST PATH: trigger GUI block (no heavy ops). fireGuiBlock handles both GUI and exploit activation.
-    fireGuiCharge()
-    startChargeAimUntilChargeEnds(0.4)
-    -- optimistic local timestamp & throttle this sound
-    lastLocalBlockTime = now
-    soundBlockedUntil[sound] = now + AUDIO_SOUND_THROTTLE
+    return _attemptForSound(sound, idParam, "Charge")
 end
 
 local function attemptCloneForSound(sound, idParam)
-    -- quick guards
-    if not autoBlockAudioOn then return end
-    if not sound or not sound:IsA("Sound") then return end
-    if not sound.IsPlaying then return end
-
-    -- localize hot globals/funcs
-    local now = tick()
-    local hooks = soundHooks
-    local hook = hooks[sound]
-
-    -- get id (prefer cached id)
-    local id = idParam or (hook and hook.id) or extractNumericSoundId(sound)
-    if not id or not autoBlockTriggerSounds[id] then return end
-
-    -- per-sound throttle
-    if soundBlockedUntil[sound] and now < soundBlockedUntil[sound] then return end
-
-    -- global local cooldown
-    if now - lastLocalBlockTime < AUDIO_LOCAL_COOLDOWN then return end
-
-    -- ensure UI refs are present (cheap call)
-    if not cachedCloneBtn then
-        refreshUIRefs()
-    end
-
-    local lpLocal = _LP or Players.LocalPlayer
-    local myChar = lpLocal and lpLocal.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
-
-    -- Try to use cached character/hrp mapped on hook; if missing, resolve once and cache
-    local char = hook and hook.char
-    local hrp = hook and hook.hrp
-
-    if not hrp then
-        -- expensive path: we only do this when cache missing (rare)
-        local soundPos, soundPart = getSoundWorldPosition(sound)
-        if not soundPart then return end
-        char = getCharacterFromDescendant(soundPart)
-        hrp = char and char:FindFirstChild("HumanoidRootPart")
-        -- cache mapping so next time it is O(1)
-        if hook then
-            hook.char = char
-            hook.hrp = hrp
-        else
-            -- create minimal entry in soundHooks so we can cache future reads
-            soundHooks[sound] = { id = id, char = char, hrp = hrp }
-            hook = soundHooks[sound]
-        end
-    end
-
-    if not hrp then return end
-
-    -- predicted position using velocity (fast scalar math)
-    local v = hrp.Velocity or Vector3.new()
-    local predictedX = hrp.Position.X + v.X * AUDIO_PREDICT_DT
-    local predictedY = hrp.Position.Y + v.Y * AUDIO_PREDICT_DT
-    local predictedZ = hrp.Position.Z + v.Z * AUDIO_PREDICT_DT
-
-    -- compute squared distance from myRoot to predicted pos (fast, no sqrt)
-    local dx = predictedX - myRoot.Position.X
-    local dy = predictedY - myRoot.Position.Y
-    local dz = predictedZ - myRoot.Position.Z
-    local distSqPred = dx*dx + dy*dy + dz*dz
-
-    -- use detectionRangeSq (make sure detectionRangeSq kept updated elsewhere)
-    if detectionRangeSq and distSqPred > detectionRangeSq then
-        -- quick extra-grace using non-predicted dist (avoid false positives for far-off sounds)
-        local dx2 = hrp.Position.X - myRoot.Position.X
-        local dy2 = hrp.Position.Y - myRoot.Position.Y
-        local dz2 = hrp.Position.Z - myRoot.Position.Z
-        local distSqNow = dx2*dx2 + dy2*dy2 + dz2*dz2
-        local grace = (detectionRange + 3) * (detectionRange + 3)
-        if distSqNow > grace then
-            return
-        end
-    end
-
-    local soundPos, soundPart = _getSoundWorldPosition(sound)
-    if not soundPart then return end
-
-    -- climb to the nearest Model and verify it looks like a character
-    local model = soundPart and soundPart:FindFirstAncestorOfClass("Model") or nil
-    if not model then return end
-
-    -- ensure it is probably a character
-    local humanoid = model:FindFirstChildWhichIsA("Humanoid")
-    if not humanoid then return end
-
-    local plr = Players:GetPlayerFromCharacter(model)
-    if not plr or plr == lp then return end
-
-    -- quick facing check using cached function
-    if facingCheckEnabled and not _isFacing(myRoot, hrp) then
-        return
-    end
-    
-    if cachedCloneBtn and cachedCloneBtn:FindFirstChild("CooldownTime") and cachedCloneBtn.CooldownTime.Text == "" then
-        print("yay")
-    else
-        return
-    end
-
-    -- FAST PATH: trigger GUI block (no heavy ops). fireGuiBlock handles both GUI and exploit activation.
-    fireGuiClone()
-    startChargeAimUntilChargeEnds(0.4)
-    -- optimistic local timestamp & throttle this sound
-    lastLocalBlockTime = now
-    soundBlockedUntil[sound] = now + AUDIO_SOUND_THROTTLE
+    return _attemptForSound(sound, idParam, "Clone")
 end
 
 -- Improved hookSound: cache id and keep placeholder for hrp/char (so attemptBlock hot-path reads cached data)
@@ -2355,34 +2182,32 @@ local function hookSound(sound)
     -- create entry with id; hrp/char may be nil initially and will be cached later
     soundHooks[sound] = { id = preId, hrp = nil, char = nil }
 
-    local playedConn = sound.Played:Connect(function()
+    -- helper: centralize the logic so behaviour remains identical but without duplication
+    local function handleAttempt(snd, id)
         if not autoBlockAudioOn then return end
+
         if not antiFlickOn then
-            if autoblocktype == "Block" then
-                attemptBlockForSound(sound, preId)
-            elseif autoblocktype == "Charge" then
-                attemptChargeForSound(sound, preId)
-            elseif autoblocktype == "7n7 Clone" then
-                attemptCloneForSound(sound, preId)
+            local at = autoblocktype
+            if at == "Block" then
+                attemptBlockForSound(snd, id)
+            elseif at == "Charge" then
+                attemptChargeForSound(snd, id)
+            elseif at == "7n7 Clone" then
+                attemptCloneForSound(snd, id)
             end
         else
-            attemptBDParts(sound, preId)
+            attemptBDParts(snd, id)
         end
+    end
+
+    -- connections
+    local playedConn = sound.Played:Connect(function()
+        handleAttempt(sound, preId)
     end)
 
     local propConn = sound:GetPropertyChangedSignal("IsPlaying"):Connect(function()
-        if sound.IsPlaying and autoBlockAudioOn then
-            if not antiFlickOn then
-                if autoblocktype == "Block" then
-                    attemptBlockForSound(sound, preId)
-                elseif autoblocktype == "Charge" then
-                    attemptChargeForSound(sound, preId)
-                elseif autoblocktype == "7n7 Clone" then
-                    attemptCloneForSound(sound, preId)
-                end
-            else
-                attemptBDParts(sound, preId)
-            end
+        if sound.IsPlaying then
+            handleAttempt(sound, preId)
         end
     end)
 
@@ -2402,17 +2227,7 @@ local function hookSound(sound)
 
     -- If currently playing, handle immediately (cheap)
     if sound.IsPlaying then
-        if not antiFlickOn then
-            if autoblocktype == "Block" then
-                attemptBlockForSound(sound, preId)
-            elseif autoblocktype == "Charge" then
-                attemptChargeForSound(sound, preId)
-            elseif autoblocktype == "7n7 Clone" then
-                attemptCloneForSound(sound, preId)
-            end
-        else
-            attemptBDParts(sound, preId)
-        end
+        handleAttempt(sound, preId)
     end
 end
 
@@ -2507,11 +2322,11 @@ local function beginDragIntoKiller(killerModel)
         local toTarget = (targetHRP.Position - hrp.Position)
         local dist = toTarget.Magnitude
         -- desired speed: based on distance but clamped so it feels natural
-        local speed = 5.6 -- you can tweak these numbers
+        
         local horiz = Vector3.new(toTarget.X, 0, toTarget.Z)
         if horiz.Magnitude > 0.01 then
             local dir = horiz.Unit
-            bv.Velocity = Vector3.new(dir.X * speed, bv.Velocity.Y, dir.Z * speed)
+            bv.Velocity = Vector3.new(dir.X * Dspeed, bv.Velocity.Y, dir.Z * Dspeed)
         else
             bv.Velocity = Vector3.new(0, bv.Velocity.Y, 0)
         end
@@ -2555,6 +2370,7 @@ RunService.RenderStepped:Connect(function()
                 local nearest = getNearestKillerModel()
                 if nearest then
                     -- spawn so we don't block the RenderStepped loop
+                    task.wait(Ddelay)
                     task.spawn(function() beginDragIntoKiller(nearest) end)
                     startChargeAimUntilChargeEnds(0.4)
                 end
@@ -2566,6 +2382,16 @@ end)
 -- If Better Detection (antiFlickOn) is enabled, watch for blue AntiFlickZone parts near the player
 -- and trigger dragging when they appear in range.
 task.spawn(function()
+    if not cachedBlockBtn or not cachedCooldown or not cachedCharges then
+        refreshUIRefs()
+    end
+
+    if cachedBlockBtn and cachedBlockBtn:FindFirstChild("CooldownTime") and cachedBlockBtn.CooldownTime.Text == "" then
+        print("yay")
+    else
+        return
+    end
+
     while true do
         RunService.Heartbeat:Wait()
         if not (hitboxDraggingTech and antiFlickOn) then
@@ -2586,12 +2412,13 @@ task.spawn(function()
                 found = part
                 break
             end
-        end
-
+        end        
         if found and not _hitboxDraggingDebounce then
             local nearest = getNearestKillerModel()
             if nearest then
+                task.wait(Ddelay)
                 task.spawn(function() beginDragIntoKiller(nearest) end)
+                startChargeAimUntilChargeEnds(0.4)
             end
         end
         task.wait(0.12) -- throttle checks
