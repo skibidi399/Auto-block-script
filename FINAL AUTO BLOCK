@@ -1481,6 +1481,13 @@ MiscTab:CreateToggle({
     end,
 })
 
+MiscTab:CreateButton({
+    Name = "infinite resistence 100% real not fake trust",
+    Callback = function(Value)
+        lp:Kick("u got banned from roblxo permandnenly very real not fake trust %100")
+    end,
+})
+
 -- Helpers
 local function fireRemoteBlock()
 local args = {"UseActorAbility", "Block"}
@@ -1736,40 +1743,9 @@ local lastLocalBlockTime = 0
 
 local function tryActivateButton(btn)
     if not btn then return false end
-    -- safe pcall for :Activate()
-    pcall(function() btn:Activate() end)
-
-    -- Try exploit getconnections if available (many executors provide this)
-    local ok, conns = pcall(function()
-        if type(getconnections) == "function" then
-            return getconnections(btn.MouseButton1Click)
-        end
-        return nil
-    end)
-
-    if ok and conns then
-        for _, conn in ipairs(conns) do
-            pcall(function()
-                -- common field names in exploit connection wrappers
-                if conn.Function then
-                    conn.Function()
-                elseif conn.func then
-                    conn.func()
-                elseif conn.Fire then
-                    conn.Fire()
-                end
-            end)
-        end
+    for _, conn in pairs(getconnections(btn.MouseButton1Click)) do
+        conn:Fire()
     end
-
-    -- As a last resort try firing Activated manually (some games use .Activated)
-    pcall(function()
-        if btn.Activated then
-            btn.Activated:Fire()
-        end
-    end)
-
-    return true
 end
 
 -- Replace previous fireRemoteBlock / fireRemotePunch with these:
