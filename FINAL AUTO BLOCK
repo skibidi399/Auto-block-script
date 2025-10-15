@@ -1,3 +1,4 @@
+
 -- Auto Block Rayfield Script (Full Features)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -10,6 +11,7 @@ local StarterGui  = game:GetService("StarterGui")
 local TestService = game:GetService("TestService")
 local ChatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
 local SayMessageRequest = ChatEvents and ChatEvents:FindFirstChild("SayMessageRequest")
+local testRemote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
 
 -- Place in ReplicatedFirst (LocalScript
 
@@ -1748,21 +1750,35 @@ local function tryActivateButton(btn)
     end
 end
 
+
+-- thx glov
 -- Replace previous fireRemoteBlock / fireRemotePunch with these:
 local function fireGuiBlock()
-    if cachedBlockBtn and tryActivateButton(cachedBlockBtn) then return end
+    local blockAction = "UseActorAbility"
+    local blockData = {buffer.fromstring("\"Block\"")}
+    
+    testRemote:FireServer(blockAction, blockData)
 end
 
 local function fireGuiPunch()
-    if cachedPunchBtn and tryActivateButton(cachedPunchBtn) then return end
+    local punchAction = "UseActorAbility"
+    local punchData = {buffer.fromstring("\"Punch\"")}
+    
+    testRemote:FireServer(punchAction, punchData)
 end
 
 local function fireGuiCharge()
-    if cachedChargeBtn and tryActivateButton(cachedChargeBtn) then return end
+    local blockAction = "UseActorAbility"
+    local blockData = {buffer.fromstring("\"Charge\"")}
+    
+    testRemote:FireServer(blockAction, blockData)
 end
 
 local function fireGuiClone()
-    if cachedCloneBtn and tryActivateButton(cachedCloneBtn) then return end
+    local blockAction = "UseActorAbility"
+    local blockData = {buffer.fromstring("\"Clone\"")}
+
+    testRemote:FireServer(blockAction, blockData)
 end
 
 local chargeAimActive = false
