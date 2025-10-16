@@ -1,4 +1,5 @@
 
+
 -- Auto Block Rayfield Script (Full Features)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -172,8 +173,6 @@ local customBlockAnimId = ""
 local customPunchEnabled = false
 local customPunchAnimId = ""
 
--- delete for pc execs
-local infiniteStamina = false
 local espEnabled = false
 local KillersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
@@ -211,23 +210,6 @@ local customChargeEnabled = false
 local customChargeAnimId = ""
 local chargeAnimIds = { "106014898528300" }
 
--- Infinite Stamina (delete for pc execs)
-local function enableInfiniteStamina()
-    local success, StaminaModule = pcall(function()
-        return require(game.ReplicatedStorage.Systems.Character.Game.Sprinting)
-    end)
-    if not success or not StaminaModule then return end
-
-    StaminaModule.StaminaLossDisabled = true
-
-    task.spawn(function()
-        while infiniteStamina and StaminaModule do
-            task.wait(0.1)
-            StaminaModule.Stamina = StaminaModule.MaxStamina
-            StaminaModule.StaminaChanged:Fire()
-        end
-    end)
-end
 
 local cachedAnimator = nil
 local function refreshAnimator()
@@ -1127,6 +1109,13 @@ MiscTab:CreateButton({
     end,
 })
 
+MiscTab:CreateButton({
+    Name = "c00lgui (custom stamina, esp, dont use on xeno) creds to owner",
+    Callback = function()
+        loadstring(game:HttpGet("https://rawscripts.net/raw/Forsaken-c00lgui-v15-ESP-EDITABLE-STAMINA-41624"))()
+    end,
+})
+
 -- Control Charge: only watch sounds that are descendants of the local player's character
 -- ===== Full Control Charge block using noli void rush override behavior =====
 -- Assumes your script already requires RunService and Players in the file,
@@ -1358,26 +1347,6 @@ MiscTab:CreateToggle({
 MiscTab:CreateParagraph({
     Title = "Tip",
     Content = 'Run Infinite Yield and type "antifling" so punch fling works better.'
-})
-
--- delete for pc execs
-MiscTab:CreateToggle({
-    Name = "Infinite Stamina",
-    CurrentValue = false,
-    Flag = "InfStamina",
-    Callback = function(value)
-        infiniteStamina = value
-        if infiniteStamina then
-            enableInfiniteStamina()
-        else
-            local success, StaminaModule = pcall(function()
-                return require(game.ReplicatedStorage.Systems.Character.Game.Sprinting)
-            end)
-            if success and StaminaModule then
-                StaminaModule.StaminaLossDisabled = false
-            end
-        end
-    end
 })
 
 
@@ -2804,21 +2773,6 @@ RunService.RenderStepped:Connect(function()
                 end
             end
         end
-    end
-end)
-
-
-
-
--- Cooldown tracking for ea
---ch replacement type
-
-
--- Readd infinite stamina (delete for pc execs)
-game.Players.LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
-    if infiniteStamina then
-        enableInfiniteStamina()
     end
 end)
 
