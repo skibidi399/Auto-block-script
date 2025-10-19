@@ -2562,6 +2562,16 @@ task.spawn(function()
                     newAnim.AnimationId = "rbxassetid://" .. customBlockAnimId
                     local newTrack = animator:LoadAnimation(newAnim)
                     newTrack:Play()
+
+                    -- auto-stop after 2.7 seconds (safe)
+                    task.delay(2, function()
+                        pcall(function()
+                            if newTrack and newTrack.IsPlaying then
+                                newTrack:Stop()
+                            end
+                        end)
+                    end)
+
                     break
                 end
             end
@@ -2575,11 +2585,22 @@ task.spawn(function()
                 if tick() - lastReplaceTime.punch >= 3 then
                     lastReplaceTime.punch = tick()
                     track:Stop()
-
+  
+                    -- with this patch:
                     local newAnim = Instance.new("Animation")
                     newAnim.AnimationId = "rbxassetid://" .. customPunchAnimId
                     local newTrack = animator:LoadAnimation(newAnim)
                     newTrack:Play()
+
+                    -- auto-stop after 2.7 seconds (safe)
+                    task.delay(2.7, function()
+                        pcall(function()
+                            if newTrack and newTrack.IsPlaying then
+                                newTrack:Stop()
+                            end
+                        end)
+                    end)
+
                     break
                 end
             end
