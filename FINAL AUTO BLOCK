@@ -170,8 +170,10 @@ local aimPunch = false
 
 local customBlockEnabled = false
 local customBlockAnimId = ""
+local customblockdelay = 2
 local customPunchEnabled = false
 local customPunchAnimId = ""
+local custompunchdelay = 2.7
 
 local espEnabled = false
 local KillersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
@@ -1080,6 +1082,14 @@ Callback = function(Value) customBlockEnabled = Value end
 })
 
 CustomAnimationsTab:CreateInput({
+    Name = "delay before stop anim (block)",
+    PlaceholderText = "2",
+    RemoveTextAfterFocusLost = false,
+    Flag = "customblockdelaystop",
+    Callback = function(Text) customblockdelay = Text end
+})
+
+CustomAnimationsTab:CreateInput({
     Name = "Custom Punch Animation (not for M3/M4)",
     PlaceholderText = "AnimationId",
     RemoveTextAfterFocusLost = false,
@@ -1092,6 +1102,15 @@ Name = "Enable Custom Punch Animation",
 CurrentValue = false,
 Callback = function(Value) customPunchEnabled = Value end
 })
+
+CustomAnimationsTab:CreateInput({
+    Name = "delay before stop anim (punch)",
+    PlaceholderText = "2",
+    RemoveTextAfterFocusLost = false,
+    Flag = "custompunchdelaystop",
+    Callback = function(Text) custompunchdelay = Text end
+})
+
 
 CustomAnimationsTab:CreateInput({
     Name = "Charge Animation ID",
@@ -2564,7 +2583,7 @@ task.spawn(function()
                     newTrack:Play()
 
                     -- auto-stop after 2.7 seconds (safe)
-                    task.delay(2, function()
+                    task.delay(customblockdelay, function()
                         pcall(function()
                             if newTrack and newTrack.IsPlaying then
                                 newTrack:Stop()
@@ -2593,7 +2612,7 @@ task.spawn(function()
                     newTrack:Play()
 
                     -- auto-stop after 2.7 seconds (safe)
-                    task.delay(2.7, function()
+                    task.delay(custompunchdelay, function()
                         pcall(function()
                             if newTrack and newTrack.IsPlaying then
                                 newTrack:Stop()
