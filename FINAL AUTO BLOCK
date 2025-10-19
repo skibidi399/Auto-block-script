@@ -13,7 +13,6 @@ local TestService = game:GetService("TestService")
 local ChatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
 local SayMessageRequest = ChatEvents and ChatEvents:FindFirstChild("SayMessageRequest")
 local testRemote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
-
 -- Place in ReplicatedFirst (LocalScript
 
 -- Continue script 
@@ -104,6 +103,7 @@ local autoBlockTriggerAnims = {
 local autoBlockOn = false
 local autoBlockAudioOn = false
 local doubleblocktech = false
+local blockdelay = 0
 local looseFacing = true
 local detectionRange = 18
 local messageWhenAutoBlockOn = false
@@ -353,6 +353,16 @@ Name = "Message When Blocking",
 CurrentValue = false,
 Flag = "MessageWhenBlockToggle",
 Callback = function(Value) messageWhenAutoBlockOn = Value end
+})
+
+AutoBlockTab:CreateInput({
+Name = "Block Delay",
+PlaceholderText = "0",
+RemoveTextAfterFocusLost = false,
+Flag = "blockdelaynumber",
+Callback = function(Text)
+blockdelay = tonumber(Text) or blockdelay
+end
 })
 
 AutoBlockTab:CreateInput({
@@ -1472,9 +1482,7 @@ end
 
 
 
-
--- Push *into* the killer (drops in for doLegitBlockTP_withVelocity)
-
+-- replace existing playCustomAnim with this
 local function playCustomAnim(animId, isPunch)
     if not Humanoid then
         warn("Humanoid missing")
@@ -1492,15 +1500,14 @@ local function playCustomAnim(animId, isPunch)
         return
     end
 
-    -- Stop other known anims
+    -- Stop other known anims (unchanged)
     for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
-        local animNum = tostring(track.Animation.AnimationId):match("%d+")
+        local animNum = tostring(track.Animation and track.Animation.AnimationId):match("%d+")
         if table.find(isPunch and punchAnimIds or blockAnimIds, animNum) then
-            track:Stop()
+            pcall(function() track:Stop() end)
         end
     end
 
-    -- Create and load the animation
     local anim = Instance.new("Animation")
     anim.AnimationId = "rbxassetid://" .. animId
 
@@ -1511,15 +1518,29 @@ local function playCustomAnim(animId, isPunch)
     if success and track then
         print("✅ Playing custom " .. (isPunch and "punch" or "block") .. " animation:", animId)
         track:Play()
+
+        -- record last-play time (keeps original behavior)
         if isPunch then
             lastPunchTime = now
         else
             lastBlockTime = now
         end
+
+        -- stop the custom track automatically after X seconds
+        local duration = isPunch and 2.7 or 2.0
+        -- use task.delay so we don't block; use pcall to avoid runtime errors
+        task.delay(duration, function()
+            pcall(function()
+                if track and track.IsPlaying then
+                    track:Stop()
+                end
+            end)
+        end)
     else
-        warn("❌ Failed to load or play custom animation: " .. animId)
+        warn("❌ Failed to load or play custom animation: " .. tostring(animId))
     end
 end
+-- Push *into* the killer (drops in for doLegitBlockTP_withVelocity)
 
 
 
@@ -1968,6 +1989,8 @@ local function _attemptForSound(sound, idParam, mode)
     if facingCheckEnabled and not _isFacing(myRoot, hrp) then
         return
     end
+
+    task.wait(blockdelay)
 
     -- mode-specific extra checks & actions (preserve prints and exact calls)
     if mode == "Block" then
@@ -2440,6 +2463,71 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+
+-- Play a custom charge animation and stop it when LP touches a non-player part or after 4s
+local function playCustomChargeWithAutoStop(animId)
+    if not lp or not lp.Character then return end
+    local char = lp.Character
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp then return end
+
+    -- get or create Animator
+    local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. tostring(animId)
+
+    local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
+    if not ok or not track then
+        warn("Failed to load charge animation:", animId)
+        return
+    end
+
+    track:Play()
+
+    local stopped = false
+    local touchConn
+    local timeoutConn
+
+    -- stop function (safe, idempotent)
+    local function stopTrack()
+        if stopped then return end
+        stopped = true
+        pcall(function() track:Stop() end)
+        if touchConn and touchConn.Connected then pcall(function() touchConn:Disconnect() end) end
+        if timeoutConn and timeoutConn.Connected then pcall(function() timeoutConn:Disconnect() end) end
+    end
+
+    -- stop when HRP touches a part that's not part of our character
+    touchConn = hrp.Touched:Connect(function(part)
+        if stopped then return end
+        if not part then return end
+        if part:IsDescendantOf(char) then return end -- ignore touching own character parts
+        -- optional: ignore other players' characters if you want; here we treat anything not part of our char as "wall"
+        stopTrack()
+    end)
+
+    -- timeout after 4 seconds (hard stop)
+    timeoutConn = nil
+    task.spawn(function()
+        local start = tick()
+        while not stopped and (tick() - start) < 4 do
+            task.wait(0.05)
+        end
+        if not stopped then
+            stopTrack()
+        end
+    end)
+
+    -- try to clean up if the track stops normally (AnimationTrack may have Stopped event)
+    pcall(function()
+        if track.Stopped then
+            track.Stopped:Connect(stopTrack)
+        end
+    end)
+end
+
 local lastReplaceTime = {
     block = 0,
     punch = 0,
@@ -2508,8 +2596,8 @@ task.spawn(function()
 
                     local newAnim = Instance.new("Animation")
                     newAnim.AnimationId = "rbxassetid://" .. customChargeAnimId
-                    local newTrack = animator:LoadAnimation(newAnim)
-                    newTrack:Play()
+                    -- Instead of directly playing the custom track, use the helper so it auto-stops on touch or after 4s
+                    playCustomChargeWithAutoStop(customChargeAnimId)
                     break
                 end
             end
@@ -2727,7 +2815,7 @@ RunService.RenderStepped:Connect(function()
                     for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
                         -- guard: want only punch tracks (vanilla or custom)
                         local animId = tostring(track.Animation.AnimationId):match("%d+")
-                        if table.find(punchAnimIds, animId) or (customPunchAnimId ~= "" and animId == tostring(customPunchAnimId)) then
+                        if table.find(punchAnimIds, animId) then
 
                             -- Avoid retriggering for the same AnimationTrack within cooldown
                             local last = lastAimTrigger[track]
