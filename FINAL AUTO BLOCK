@@ -1,4 +1,7 @@
 
+-- improved hookSound: try harder to cache hrp/char immediately
+
+
 
 -- Auto Block Rayfield Script (Full Features)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -72,6 +75,8 @@ local autoBlockTriggerSounds = {
     ["12222216"] = true,
     ["105840448036441"] = true,
     ["114742322778642"] = true,
+    ["119583605486352"] = true,
+    ["79980897195554"] = true,
 }
 
 -- Prevent repeated aim triggers for the same animation track
@@ -102,6 +107,7 @@ local autoBlockTriggerAnims = {
 -- State Variables
 local autoBlockOn = false
 local autoBlockAudioOn = false
+
 local doubleblocktech = false
 local blockdelay = 0
 local looseFacing = true
@@ -1482,6 +1488,13 @@ MiscTab:CreateToggle({
 })
 
 MiscTab:CreateButton({
+    Name = "Remove Slowness (only the status effect)",
+    Callback = function(Value)
+        game:GetService("ReplicatedStorage").Modules.StatusEffects.Slowness:Destroy()
+    end,
+})
+
+MiscTab:CreateButton({
     Name = "infinite resistence 100% real not fake trust",
     Callback = function(Value)
         lp:Kick("u got banned from roblxo permandnenly very real not fake trust %100")
@@ -2013,7 +2026,15 @@ local function _attemptForSound(sound, idParam, mode)
 
     -- mode-specific extra checks & actions (preserve prints and exact calls)
     if mode == "Block" then
+        if cachedCooldown and cachedCooldown.Text == "" then
+            print("yay")
+        else
+            return
+        end
         fireGuiBlock()
+        if doubleblocktech == true then
+            fireGuiPunch()
+        end
     elseif mode == "Charge" then
         if cachedChargeBtn and cachedChargeBtn:FindFirstChild("CooldownTime") and cachedChargeBtn.CooldownTime.Text == "" then
             print("yay")
@@ -2237,14 +2258,14 @@ end
 -- Hook existing Sounds across the game (covers workspace, SoundService, Lighting, etc.)
 for _, desc in ipairs(KillersFolder:GetDescendants()) do
     if desc:IsA("Sound") then
-        pcall(hookSound, desc)
+        hookSound(desc)
     end
 end
 
 -- Hook any future Sounds
 KillersFolder.DescendantAdded:Connect(function(desc)
     if desc:IsA("Sound") then
-        pcall(hookSound, desc)
+        hookSound(desc)
     end
 end)
 -- ===== End Robust Sound Auto Block =====
@@ -2435,52 +2456,6 @@ local TRACK_DEBOUNCE = 0.45   -- seconds to avoid retriggering same track
 local START_WINDOW = 0     -- consider a track "starting" if TimePosition <= START_WINDOW
 
 local trackLastTriggered = setmetatable({}, { __mode = "k" }) -- weak keys (AnimationTrack -> last tick)
-
-RunService.RenderStepped:Connect(function()
-    if not doubleblocktech then return end
-    local char = lp and lp.Character
-    if not char then return end
-
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    local animator = cachedAnimator
-    if not animator then
-        refreshAnimator()
-        animator = cachedAnimator
-    end
-
-    -- ensure GUI refs fresh if missing (helps when GUI recreates)
-    if _REFRESH_UI_IF_NIL and (not cachedPunchBtn or not cachedCharges) and type(refreshUIRefs) == "function" then
-        pcall(refreshUIRefs)
-    end
-
-    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-        local ok, animId = pcall(function()
-            local a = track.Animation
-            return a and tostring(a.AnimationId):match("%d+")
-        end)
-        if ok and animId and table.find(blockAnimIds, animId) then
-            -- safe read of time position
-            local timePos = 0
-            pcall(function() timePos = track.TimePosition or 0 end)
-
-            -- only trigger when the track is just starting (helps with timing)
-            if timePos <= START_WINDOW then
-                local last = trackLastTriggered[track]
-                if not last or (tick() - last) >= TRACK_DEBOUNCE then
-                    trackLastTriggered[track] = tick()
-                    -- extra safety: ensure punch button exists before trying
-                    if cachedPunchBtn == nil and type(refreshUIRefs) == "function" then
-                        pcall(refreshUIRefs)
-                    end
-
-                    -- try GUI-based punch activation (this function already handles safety)
-                    print("trying to punch")
-                    pcall(fireGuiPunch)
-                end
-            end
-        end
-    end
-end)
 
 
 -- Play a custom charge animation and stop it when LP touches a non-player part or after 4s
