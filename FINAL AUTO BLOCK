@@ -1,9 +1,4 @@
-
--- improved hookSound: try harder to cache hrp/char immediately
-
-
-
--- Auto Block Rayfield Script (Full Features)
+-- skibidi
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -16,38 +11,7 @@ local TestService = game:GetService("TestService")
 local ChatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
 local SayMessageRequest = ChatEvents and ChatEvents:FindFirstChild("SayMessageRequest")
 local testRemote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
--- Place in ReplicatedFirst (LocalScript
 
--- Continue script 
-
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-local Window = Rayfield:CreateWindow({
-Name = "Auto Block Hub",
-LoadingTitle = "Auto Block Script",
-LoadingSubtitle = "by Skibidi Shots",
-ConfigurationSaving = {
-Enabled = true,
-FolderName = "AutoBlockHub",
-FileName = "Settings"
-},
-Discord = {Enabled = false},
-KeySystem = false
-})
-
-
-local NoticeTab = Window:CreateTab("Notice", 4483362458)
-local AutoBlockTab = Window:CreateTab("Auto Block", 4483362458)
-local BDTab = Window:CreateTab("Better Detection", 4483362458)
-local TechTab = Window:CreateTab("Techs", 4483362458)
-local PredictiveTab = Window:CreateTab("Predictive Auto Block", 4483362458)
-local FakeBlockTab = Window:CreateTab("Fake Block", 4483362458)
-local AutoPunchTab = Window:CreateTab("Auto Punch", 4483362458)
-local CustomAnimationsTab = Window:CreateTab("Custom Animations", 4483362458)
-local MiscTab = Window:CreateTab("Misc", 4483362458)
-
-
-
--- IDs.
 local autoBlockTriggerSounds = {
     ["102228729296384"] = true,
     ["140242176732868"] = true,
@@ -89,7 +53,8 @@ local autoBlockTriggerSounds = {
     ["121954639447247"] = true,
     ["125213046326879"] = true,
     ["131406927389838"] = true,
-    ["117173212095661"] = true,
+    ["71834552297085"] = true, -- Guest666 leap ability thingy
+    ["805165833096"] = true,
 }
 
 -- Prevent repeated aim triggers for the same animation track
@@ -114,7 +79,7 @@ local autoBlockTriggerAnims = {
     "97167027849946", "109230267448394", "139835501033932", "126896426760253",
     "109667959938617", "126681776859538", "129976080405072", "121293883585738",
     "81639435858902", "137314737492715",
-    "92173139187970"
+    "92173139187970", "122709416391", "879895330952"
 }
 
 -- State Variables
@@ -147,6 +112,7 @@ local PRED_MAX_FORWARD      = 6     -- clamp (studs)
 local PRED_MAX_LATERAL      = 4     -- clamp (studs)
 local ANG_TURN_MULTIPLIER   = 0.6   -- how much angular velocity contributes to lateral offset
 local SMOOTHING_LERP        = 0.22  -- smoothing for sampled velocity/angular vel
+local stagger  = 0.02
 
 local killerState = {} -- [model] = { prevPos, prevLook, vel(Vector3), angVel(number) }
 
@@ -174,7 +140,13 @@ local predictiveBlockOn = false
 local edgeKillerDelay = 3
 local killerInRangeSince = nil
 local predictiveCooldown = 0
+-- auto punch
+local predictionValue = 4
 
+local hitboxDraggingTech = false
+local _hitboxDraggingDebounce = false
+local HITBOX_DRAG_DURATION = 1.4
+local HITBOX_DETECT_RADIUS = 6
 local Dspeed = 5.6 -- you can tweak these numbers
 local Ddelay = 0
 
@@ -288,140 +260,8 @@ if cachedPlayerGui then
     end)
 end
 
-lp.CharacterAdded:Connect(function()
-    task.delay(0.5, refreshUIRefs)
-end)
-
-NoticeTab:CreateParagraph({
-    Title = "welcome",
-    Content = "thanks for using my wonderful auto block script"
-})
-
-NoticeTab:CreateParagraph({
-    Title = "",
-    Content = "some features may only work with guest skins thats using the default anims"
-})
-
-NoticeTab:CreateParagraph({
-    Title = "",
-    Content = ".gg/Tmby2GkKJR"
-})
-
--- GUI Toggles
-AutoBlockTab:CreateToggle({
-Name = "Auto Block (Animation)",
-CurrentValue = false,
-Flag = "AutoBlockAnimation",
-Callback = function(Value) autoBlockOn = Value end
-})
-
--- Rayfield toggle for Auto Block (Audio)
-AutoBlockTab:CreateToggle({
-    Name = "Auto Block (Audio)",
-    CurrentValue = false,
-    Flag = "AutoBlockAudio",
-    Callback = function(state)
-        autoBlockAudioOn = state
-    end,
-})
-
--- make sure AutoBlockTab is a valid Rayfield tab object
-local autoblocktype = "Block"
-
-local StarterGui = game:GetService("StarterGui")
-
--- simple notification
-local function SendNotif(title, text, duration)
-    StarterGui:SetCore("SendNotification", {
-        Title = title or "Hello",
-        Text = text or "hi",
-        Duration = duration or 4 -- seconds
-    })
-end
-
-AutoBlockTab:CreateButton({
-    Name = "Change auto block type",
-    Callback = function()
-        if autoblocktype == "Block" then
-            autoblocktype = "Charge"
-            SendNotif("changed auto block type", "CHARGE", 4)
-        elseif autoblocktype == "Charge" then
-            autoblocktype = "7n7 Clone"
-            SendNotif("changed auto block type", "7N7 CLONE", 4)
-        elseif autoblocktype == "7n7 Clone" then
-            autoblocktype = "Block"
-            SendNotif("changed auto block type", "BLOCK", 4)
-        end
-    end,
-})
-
---AutoBlockTab:CreateToggle({
---    Name = "Faster Audio AB (only uses detection range)",
---    CurrentValue = false,
---    Flag = "FasterAudioAB",
---    Callback = function(state)
---        fasterAudioAB = state
---    end,
---})
-
-AutoBlockTab:CreateParagraph({
-    Title = "Recomendation",
-    Content = "use audio auto block and use 20 range for it"
-})
-
-AutoBlockTab:CreateToggle({
-Name = "Message When Blocking",
-CurrentValue = false,
-Flag = "MessageWhenBlockToggle",
-Callback = function(Value) messageWhenAutoBlockOn = Value end
-})
-
-AutoBlockTab:CreateInput({
-Name = "Block Delay",
-PlaceholderText = "0",
-RemoveTextAfterFocusLost = false,
-Flag = "blockdelaynumber",
-Callback = function(Text)
-blockdelay = tonumber(Text) or blockdelay
-end
-})
-
-AutoBlockTab:CreateInput({
-    Name = "Message when blocking",
-    PlaceholderText = "im gonna block ya",
-    RemoveTextAfterFocusLost = false,
-    Flag = "MessageWhenBlockText",
-    Callback = function(Text) messageWhenAutoBlock = Text end
-})
-
-AutoBlockTab:CreateParagraph({
-    Title = "notice",
-    Content = "face check delays on coolkid, dont use face check agaisnt coolkid."
-})
-
 local facingCheckEnabled = true
 local customFacingDot = -0.3
-
-AutoBlockTab:CreateToggle({
-    Name = "Enable Facing Check",
-    CurrentValue = true,
-    Flag = "FacingCheckToggle",
-    Callback = function(Value)
-        facingCheckEnabled = Value
-    end
-})
-
-
-
-local function isFacing(localRoot, targetRoot)
-    if not facingCheckEnabled then
-        return true
-    end
-
-    local dir = (localRoot.Position - targetRoot.Position).Unit
-    local dot = targetRoot.CFrame.LookVector:Dot(dir)
-    return looseFacing and dot > customFacingDot
-end
 
 -- Optimized facing check
 local function isFacing(localRoot, targetRoot)
@@ -568,49 +408,6 @@ KillersFolder.ChildAdded:Connect(function(killer)
 end)
 KillersFolder.ChildRemoved:Connect(function(killer) removeFacingVisual(killer) end)
 
--- toggle in GUI (keeps behaviour with dropdown)
-AutoBlockTab:CreateToggle({
-    Name = "Facing Check Visual",
-    CurrentValue = false,
-    Flag = "FacingCheckVisualToggle",
-    Callback = function(state)
-        facingVisualOn = state
-        refreshFacingVisuals()
-    end
-})
-
-AutoBlockTab:CreateParagraph({
-    Title = "letsgo",
-    Content = "facing check visual not being accurate is because its just there to give u an idea of the facing check"
-})
-
-AutoBlockTab:CreateInput({
-Name = "Facing Check angle (DOT)",
-PlaceholderText = "-0.3",
-RemoveTextAfterFocusLost = false,
-Flag = "Facingcheckdot",
-Callback = function(Text)
-customFacingDot = tonumber(Text) or customFacingDot
-end
-})
-
-AutoBlockTab:CreateParagraph({
-    Title = "DOT explanation",
-    Content = "if for example you put it 0 you will need to be EXACTLY infront of the killer. but you can make the facing check cone larger by making it -0.3 or -0.5 if you put -1 is going to be a half circle cone infront the killer, so yeah."
-})
-
-AutoBlockTab:CreateInput({
-Name = "Detection Range",
-PlaceholderText = "18",
-RemoveTextAfterFocusLost = false,
-Flag = "DetectionRange",
-Callback = function(Text)
-detectionRange = tonumber(Text) or detectionRange
-detectionRangeSq = detectionRange * detectionRange
-end
-})
-
-
 -- ===== Facing Check Visual (paste after detectionCircles / addKillerCircle) =====
 local detectionCircles = {} -- store all killer circles
 local killerCirclesVisible = false
@@ -687,93 +484,23 @@ KillersFolder.ChildRemoved:Connect(function(killer)
     removeKillerCircle(killer)
 end)
 
--- Rayfield toggle
-AutoBlockTab:CreateToggle({
-    Name = "Range Visual",
-    CurrentValue = false,
-    Flag = "KillerCircleToggle",
-    Callback = function(state)
-        killerCirclesVisible = state
-        refreshKillerCircles()
-    end
-})
 
-BDTab:CreateParagraph({
-    Title = "notice",
-    Content = "BD or Better Detection delays on coolkid, use normal detection agaisnt coolkid."
-})
+local autoblocktype = "Block"
 
-BDTab:CreateToggle({
-    Name = "Better Detection (doesn't use detectrange)",
-    CurrentValue = false,
-    Flag = "AntiFlickToggle",
-    Callback = function(state)
-        antiFlickOn = state
-    end,
-})
+local StarterGui = game:GetService("StarterGui")
 
-BDTab:CreateSlider({
-    Name = "How many block parts that spawn",
-    Range = {1, 16},       -- min,max parts the player can pick
-    Increment = 1,         -- step size (integer only)
-    Suffix = "parts",
-    CurrentValue = 4,      -- default shown in UI
-    Flag = "AntiFlickParts",
-    Callback = function(val)
-        antiFlickParts = math.max(1, math.floor(val))
-    end,
-})
+-- simple notification
+local function SendNotif(title, text, duration)
+    StarterGui:SetCore("SendNotification", {
+        Title = title or "Hello",
+        Text = text or "hi",
+        Duration = duration or 4 -- seconds
+    })
+end
 
-BDTab:CreateSlider({
-    Name = "Block Parts Size Multiplier",
-    Range = {0.1, 5},      -- min 0.1x, max 5x
-    Increment = 0.1,
-    Suffix = "x",
-    CurrentValue = 1,      -- default 1x
-    Flag = "BlockPartsSizeMultiplier",
-    Callback = function(val)
-        blockPartsSizeMultiplier = tonumber(val) or 1
-    end,
-})
-
-BDTab:CreateSlider({
-    Name = "Forward Prediction Strength",
-    Range = {0, 10},        -- 1x .. 10x
-    Increment = 0.1,
-    Suffix = "x",
-    CurrentValue = 1,
-    Flag = "PredictionStrength",
-    Callback = function(val)
-        predictionStrength = val
-    end,
-})
-
-BDTab:CreateSlider({
-    Name = "Turn Prediction Strength",
-    Range = {0, 10},        -- 1x .. 10x
-    Increment = 0.1,
-    Suffix = "x",
-    CurrentValue = 1,
-    Flag = "PredictionTurnStrength",
-    Callback = function(val)
-        predictionTurnStrength = val
-    end,
-})
-
-BDTab:CreateInput({
-    Name = "delay before the first block part spawn (seconds) (DBTFBPS)",
-    PlaceholderText = "0",
-    RemoveTextAfterFocusLost = false,
-    Flag = "AntiFlickDelay",
-    Callback = function(text)
-        local num = tonumber(text)
-        if num then
-            antiFlickDelay = math.max(0, num) -- don’t allow negative
-        end
-    end,
-})
-
--- ===== auto-adjust DBTFBPS based on killer (drop this after KillersFolder / BD inputs) =====
+lp.CharacterAdded:Connect(function()
+    task.delay(0.5, refreshUIRefs)
+end)
 
 local function getNearestKillerModel()
     local myChar = lp.Character
@@ -845,335 +572,6 @@ end
 KillersFolder.ChildAdded:Connect(function() task.delay(0.05, doImmediateUpdate) end)
 KillersFolder.ChildRemoved:Connect(function() task.delay(0.05, doImmediateUpdate) end)
 
--- UI toggle to enable/disable the auto-adjust behavior (place this near other BDTab controls)
-BDTab:CreateToggle({
-    Name = "Auto-adjust DBTFBPS based on killer",
-    CurrentValue = false,
-    Flag = "AutoAdjustDBTFBPS",
-    Callback = function(state)
-        autoAdjustDBTFBPS = state
-        if state then
-            -- save the current manual value so we can restore it when the toggle is off
-            _savedManualAntiFlickDelay = antiFlickDelay or 0
-            doImmediateUpdate()
-            print("Auto-DBTFBPS: enabled (saved manual antiFlickDelay = " .. tostring(_savedManualAntiFlickDelay) .. ")")
-        else
-            -- restore manual value when user disables
-            antiFlickDelay = _savedManualAntiFlickDelay
-            print("Auto-DBTFBPS: disabled -> restored antiFlickDelay = " .. tostring(antiFlickDelay))
-        end
-    end,
-})
--- ===== end auto-adjust snippet =====
-
-
-local stagger  = 0.02
-
-BDTab:CreateInput({
-    Name = "delay before each block parts spawns (seconds)",
-    PlaceholderText = "0.02",
-    RemoveTextAfterFocusLost = false,
-    Flag = "AntiFlickDelayEachParts",
-    Callback = function(text)
-        local num = tonumber(text)
-        if num then
-            stagger = math.max(0, num) -- don’t allow negative
-        end
-    end,
-})
-
-
-
-BDTab:CreateInput({
-    Name = "how much studs infront killer the block parts are gonna spawn (studs)",
-    PlaceholderText = "2.7",
-    RemoveTextAfterFocusLost = false,
-    Flag = "AntiFlickDistanceInfront",
-    Callback = function(text)
-        local num = tonumber(text)
-        if num then
-            antiFlickBaseOffset = math.max(0, num) -- don’t allow negative
-        end
-    end,
-})
-
-TechTab:CreateToggle({
-    Name = "Double Punch Tech",
-    CurrentValue = false,
-    Flag = "doubleblockTechtoggle",
-    Callback = function(state)
-        doubleblocktech = state
-    end,
-})
-
--- Hitbox Dragging Tech
-local hitboxDraggingTech = false
-local _hitboxDraggingDebounce = false
-local HITBOX_DRAG_DURATION = 1.4
-local HITBOX_DETECT_RADIUS = 6
-
-TechTab:CreateToggle({
-    Name = "Hitbox Dragging tech (HDT)",
-    CurrentValue = false,
-    Flag = "HitboxDraggingToggle",
-    Callback = function(state)
-        hitboxDraggingTech = state
-    end,
-})
-
-TechTab:CreateInput({
-    Name = "HDT speed",
-    PlaceholderText = "5.6",
-    RemoveTextAfterFocusLost = false,
-    Flag = "HDTspeed",
-    Callback = function(Text) Dspeed = Text end
-})
-
-TechTab:CreateInput({
-    Name = "HDT delay",
-    PlaceholderText = "0",
-    RemoveTextAfterFocusLost = false,
-    Flag = "HDTdelay",
-    Callback = function(Text) Ddelay = Text end
-})
-
-TechTab:CreateParagraph({
-    Title = "Hitbox Dragging tech",
-    Content = "i reccomend using a high detection range (if using normal detection) when using this"
-})
-
-TechTab:CreateButton({
-    Name = "Fake Lag Tech",
-    Callback = function()
-        pcall(function()
-            local char = lp.Character or lp.CharacterAdded:Wait()
-            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-            if not humanoid then return end
-
-            local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
-
-            -- (optional) stop any identical track already playing
-            for _, t in ipairs(animator:GetPlayingAnimationTracks()) do
-                local id = tostring(t.Animation and t.Animation.AnimationId or ""):match("%d+")
-                if id == "136252471123500" then
-                    pcall(function() t:Stop() end)
-                end
-            end
-
-            local anim = Instance.new("Animation")
-            anim.AnimationId = "rbxassetid://136252471123500"
-            local track = animator:LoadAnimation(anim)
-            track:Play()
-        end)
-    end,
-})
-
-PredictiveTab:CreateToggle({
-    Name = "Predictive Auto Block",
-    CurrentValue = false,
-    Callback = function(Value)
-        predictiveBlockOn = Value
-    end,
-})
-
-PredictiveTab:CreateInput({
-    Name = "Detection Range",
-    PlaceholderText = "10",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(text)
-        local num = tonumber(text)
-        if num then
-            detectionRange = num
-        end
-    end,
-})
-
-
-PredictiveTab:CreateSlider({
-    Name = "Edge Killer",
-    Range = {0, 7},
-    Increment = 0.1,
-    CurrentValue = 3,
-    Flag = "edgekillerlmao",
-    Callback = function(val)
-        edgeKillerDelay = val
-    end,
-})
-
-PredictiveTab:CreateParagraph({
-    Title = "Edge Killer",
-    Content = "how many secs until it blocks (resets when killer gets out of range)"
-})
-
-FakeBlockTab:CreateButton({
-    Name = "Load Fake Block",
-    Callback = function()
-        pcall(function()
-            local fakeGui = PlayerGui:FindFirstChild("FakeBlockGui")
-            if not fakeGui then
-                local success, result = pcall(function()
-                    return loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Auto-block-script/refs/heads/main/fakeblock"))()
-                end)
-                if not success then
-                    warn("❌ Failed to load Fake Block GUI:", result)
-                end
-            else
-                fakeGui.Enabled = true
-                print("✅ Fake Block GUI enabled")
-            end
-        end)
-    end
-})
-
-
-AutoPunchTab:CreateToggle({
-Name = "Auto Punch",
-CurrentValue = false,
-Flag = "AutoPunchToggle",
-Callback = function(Value) autoPunchOn = Value end
-})
-
-AutoPunchTab:CreateToggle({
-Name = "Message When Punching",
-CurrentValue = false,
-Flag = "MessageWhenPunchToggle",
-Callback = function(Value) messageWhenAutoPunchOn = Value end
-})
-
-AutoPunchTab:CreateInput({
-    Name = "Message when punching",
-    PlaceholderText = "Im not gonna sugarcoat it.",
-    RemoveTextAfterFocusLost = false,
-    Flag = "MessageWhenPunchText",
-    Callback = function(Text) messageWhenAutoPunch = Text end
-})
-
-AutoPunchTab:CreateToggle({
-Name = "Fling Punch",
-CurrentValue = false,
-Callback = function(Value) flingPunchOn = Value end
-})
-
-AutoPunchTab:CreateToggle({
-Name = "Punch Aimbot",
-CurrentValue = false,
-Flag = "PunchAimToggle",
-Callback = function(Value) aimPunch = Value end
-})
-
-
-local predictionValue = 4
-
-AutoPunchTab:CreateSlider({
-    Name = "Aim Prediction",
-    Range = {0, 10},
-    Increment = 0.1,
-    Suffix = "studs",
-    CurrentValue = predictionValue,
-    Flag = "PredictionSlider",
-    Callback = function(Value)
-        predictionValue = Value
-    end,
-})
-
-AutoPunchTab:CreateSlider({
-Name = "Fling Power",
-Range = {5000, 50000000000000},
-Increment = 1000000,
-CurrentValue = 10000,
-Flag = "FlingPower",
-Callback = function(Value) flingPower = Value end
-})
-
--- Custom Block Animation
-CustomAnimationsTab:CreateInput({
-    Name = "Custom Block Animation",
-    PlaceholderText = "AnimationId",
-    RemoveTextAfterFocusLost = false,
-    Flag = "customblockid",
-    Callback = function(Text) customBlockAnimId = Text end
-})
-
-CustomAnimationsTab:CreateToggle({
-Name = "Enable Custom Block Animation",
-CurrentValue = false,
-Callback = function(Value) customBlockEnabled = Value end
-})
-
-CustomAnimationsTab:CreateInput({
-    Name = "delay before stop anim (block)",
-    PlaceholderText = "2",
-    RemoveTextAfterFocusLost = false,
-    Flag = "customblockdelaystop",
-    Callback = function(Text) customblockdelay = Text end
-})
-
-CustomAnimationsTab:CreateInput({
-    Name = "Custom Punch Animation (not for M3/M4)",
-    PlaceholderText = "AnimationId",
-    RemoveTextAfterFocusLost = false,
-    Flag = "custompunchid",
-    Callback = function(Text) customPunchAnimId = Text end
-})
-
-CustomAnimationsTab:CreateToggle({
-Name = "Enable Custom Punch Animation",
-CurrentValue = false,
-Callback = function(Value) customPunchEnabled = Value end
-})
-
-CustomAnimationsTab:CreateInput({
-    Name = "delay before stop anim (punch)",
-    PlaceholderText = "2",
-    RemoveTextAfterFocusLost = false,
-    Flag = "custompunchdelaystop",
-    Callback = function(Text) custompunchdelay = Text end
-})
-
-
-CustomAnimationsTab:CreateInput({
-    Name = "Charge Animation ID",
-    PlaceholderText = "Put animation ID here",
-    RemoveTextAfterFocusLost = false,
-    Flag = "customchargeid",
-    Callback = function(input)
-        customChargeAnimId = input
-    end,
-})
-
-CustomAnimationsTab:CreateToggle({
-    Name = "Custom Charge Animation",
-    CurrentValue = false,
-    Callback = function(value)
-        customChargeEnabled = value
-    end,
-})
-
--- Button to run Infinite Yield
-MiscTab:CreateButton({
-    Name = "Run Infinite Yield",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-    end,
-})
-
-MiscTab:CreateButton({
-    Name = "c00lgui (custom stamina, esp, dont use on xeno) creds to owner",
-    Callback = function()
-        loadstring(game:HttpGet("https://rawscripts.net/raw/Forsaken-c00lgui-v15-ESP-EDITABLE-STAMINA-41624"))()
-    end,
-})
-
--- Control Charge: only watch sounds that are descendants of the local player's character
--- ===== Full Control Charge block using noli void rush override behavior =====
--- Assumes your script already requires RunService and Players in the file,
--- but this block gets its own references so it can be pasted standalone.
-
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local lp = Players.LocalPlayer
-
--- Detector IDs table (use existing chargeAnimIds if available)
 local detectorChargeIds = (type(chargeAnimIds) == "table" and chargeAnimIds) or {}
 
 -- Optional: detect a custom charge anim id (if you already use these vars elsewhere)
@@ -1376,28 +774,6 @@ _G.ControlCharge_DashSpeed = _G.ControlCharge_DashSpeed or 60
 _G.ControlCharge_CustomEnabled = _G.ControlCharge_CustomEnabled or false
 _G.ControlCharge_CustomAnimId = _G.ControlCharge_CustomAnimId or ""
 
--- Toggle: enable / disable the control charge monitoring
-MiscTab:CreateToggle({
-    Name = "Control Charge",
-    CurrentValue = false,
-    Callback = function(val)
-        -- call the setter your control block exposes
-        if _G.ControlCharge_SetEnabled then
-            pcall(function() _G.ControlCharge_SetEnabled(val) end)
-        else
-            -- fallback: store desired state so the control block can pick it up if it reads _G later
-            _G.ControlCharge_WantedEnabled = val
-        end
-    end,
-})
-
--- Message below the button
-MiscTab:CreateParagraph({
-    Title = "Tip",
-    Content = 'Run Infinite Yield and type "antifling" so punch fling works better.'
-})
-
-
 local function addESP(obj)
     if not obj:IsA("Model") then return end
     if not obj:FindFirstChild("HumanoidRootPart") then return end
@@ -1490,29 +866,15 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-MiscTab:CreateToggle({
-    Name = "Killer ESP",
-    CurrentValue = false,
-    Flag = "KillerESP_Toggle",
-    Callback = function(Value)
-        espEnabled = Value
-        refreshESP()
-    end,
-})
-
-MiscTab:CreateButton({
-    Name = "Remove Slowness (only the status effect)",
-    Callback = function(Value)
-        game:GetService("ReplicatedStorage").Modules.StatusEffects.Slowness:Destroy()
-    end,
-})
-
-MiscTab:CreateButton({
-    Name = "infinite resistence 100% real not fake trust",
-    Callback = function(Value)
-        lp:Kick("u got banned from roblxo permandnenly very real not fake trust %100")
-    end,
-})
+local _LP = Players.LocalPlayer
+local _isFacing = isFacing
+local _fireRemoteBlock = fireRemoteBlock
+local _fireRemotePunch = fireRemotePunch
+local _cachedBlockBtn = cachedBlockBtn
+local _cachedCooldown = cachedCooldown            -- these may be updated by refreshUIRefs
+local _cachedCharges = cachedCharges
+local LOCAL_BLOCK_COOLDOWN = 0.7   -- optimistic local cooldown (tune as needed)
+local lastLocalBlockTime = 0
 
 -- Helpers
 local function fireRemoteBlock()
@@ -1767,27 +1129,6 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
--- near top with other locals
-local _LP = Players.LocalPlayer
-local _isFacing = isFacing
-local _fireRemoteBlock = fireRemoteBlock
-local _fireRemotePunch = fireRemotePunch
-local _cachedBlockBtn = cachedBlockBtn
-local _cachedCooldown = cachedCooldown            -- these may be updated by refreshUIRefs
-local _cachedCharges = cachedCharges
-local LOCAL_BLOCK_COOLDOWN = 0.7   -- optimistic local cooldown (tune as needed)
-local lastLocalBlockTime = 0
-
-local function tryActivateButton(btn)
-    if not btn then return false end
-    for _, conn in pairs(getconnections(btn.MouseButton1Click)) do
-        conn:Fire()
-    end
-end
-
-
--- thx glov
--- Replace previous fireRemoteBlock / fireRemotePunch with these:
 local function fireGuiBlock()
     local blockAction = "UseActorAbility"
     local blockData = {buffer.fromstring("\"Block\"")}
@@ -2281,7 +1622,6 @@ KillersFolder.DescendantAdded:Connect(function(desc)
         hookSound(desc)
     end
 end)
--- ===== End Robust Sound Auto Block =====
 
 -- Utility to safely get a killer HRP
 local function getKillerHRP(killerModel)
@@ -2659,10 +1999,10 @@ RunService.RenderStepped:Connect(function()
                         if autoBlockOn and (hrp.Position - myRoot.Position).Magnitude <= detectionRange then
                             if isFacing(myRoot, hrp) then
                                 if cooldown and cooldown.Text == "" then
-                                    fireRemoteBlock()
+                                    fireGuiBlock()
                                 end
                                 if doubleblocktech == true and charges and charges.Text == "1" then
-                                    fireRemotePunch()
+                                    fireGuiPunch()
                                 end
                             end
                         end
@@ -2892,4 +2232,722 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-Rayfield:LoadConfiguration()
+local success, Library = pcall(function()
+    local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+    return loadstring(game:HttpGet(repo .. "Library.lua"))()
+end)
+
+
+local Tabs
+
+local ThemeManager, SaveManager
+if success and Library then
+    pcall(function()
+        local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+        ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
+        SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
+    end)
+else
+    warn("Obsidian library failed to load. If HttpGet is blocked, require a local copy of Library.lua and addons instead.")
+end
+
+-- If Library loaded, build UI using Example.lua patterns
+local Options, Toggles, Window
+local ui_refs = {}
+
+
+-- GUI SHIT --
+
+if Library then
+    -- optional recommended settings from Example.lua
+    Library.ForceCheckbox = false
+    Library.ShowToggleFrameInKeybinds = true
+
+    Window = Library:CreateWindow({
+        Title = "Auto Block",
+        Footer = "ples sub to forsaken.scripts",
+        Icon = 0,
+        NotifySide = "Right",
+        ShowCustomCursor = true,
+    })
+
+    Tabs = {
+        Notice = Window:AddTab("Notice", "user"),
+        AutoBlock = Window:AddTab("Auto Block", "sword"),
+        BD = Window:AddTab("BD", "sword"),
+        Tech = Window:AddTab("Techs", "sword"),
+        AutoBlockPrediction = Window:AddTab("Auto Block Prediction", "wrench"),
+        AutoPunch = Window:AddTab("Auto Punch", "wrench"),
+        CustomAnim = Window:AddTab("Custom Anims", "user"),
+        FB = Window:AddTab("Fake Block", "user"),
+        Misc = Window:AddTab("Misc", "swords"),
+       	["UI Settings"] = Window:AddTab("Settings", "settings"),
+    }
+
+    local NoticeLeftGroup = Tabs.Notice:AddLeftGroupbox("welcome")
+    local NoticeRightGroup = Tabs.Notice:AddRightGroupbox("Update Log")
+
+    local AutoBlockLeftGroup = Tabs.AutoBlock:AddLeftGroupbox("autoblock")
+    local AutoBlockRightGroup = Tabs.AutoBlock:AddRightGroupbox("more things")
+
+    local BDLeftGroup = Tabs.BD:AddLeftGroupbox("autoblock")
+    local BDRightGroup = Tabs.BD:AddRightGroupbox("more things")
+
+    local TechLeftGroup = Tabs.Tech:AddLeftGroupbox("techs")
+    local TechRightGroup = Tabs.Tech:AddRightGroupbox("what they do")
+
+    local AutoBlockPredictionLeftGroup = Tabs.AutoBlockPrediction:AddLeftGroupbox("autoblock prediction")
+    local AutoBlockPredictionRightGroup = Tabs.AutoBlockPrediction:AddRightGroupbox("more things")
+
+    local AutoPunchLeftGroup = Tabs.AutoPunch:AddLeftGroupbox("Techs")
+    local AutoPunchRightGroup = Tabs.AutoPunch:AddRightGroupbox("a")
+
+    local CustomAnimLeftGroup = Tabs.CustomAnim:AddLeftGroupbox("Stuff")
+    local CustomAnimRightGroup = Tabs.CustomAnim:AddRightGroupbox("more things")
+
+    local FBLeftGroup = Tabs.FB:AddLeftGroupbox("Fake Block")
+
+    local MiscLeftGroup = Tabs.Misc:AddLeftGroupbox("Universal")
+    local MiscRightGroup = Tabs.Misc:AddRightGroupbox("Forsaken")
+
+
+    NoticeLeftGroup:AddLabel("thanks for using my wonderful auto block script")
+    NoticeLeftGroup:AddLabel("some features may only work with guest skins thats using the default anims")
+    NoticeLeftGroup:AddLabel(".gg/Tmby2GkKJR")
+
+    NoticeRightGroup:AddLabel("1. made ab anim work")
+    NoticeRightGroup:AddLabel("with sixer.")
+    NoticeRightGroup:AddLabel("2. changed ui to")
+    NoticeRightGroup:AddLabel("obsidian")
+    NoticeRightGroup:AddLabel("3. audio ab now works with ck.")
+
+    NoticeRightGroup:AddLabel("UPDATE PLANS")
+    NoticeRightGroup:AddLabel("1. optimize lag")
+    NoticeRightGroup:AddLabel("2. uhhh idk,")
+    NoticeRightGroup:AddLabel("suggest in discord.")
+
+
+    AutoBlockLeftGroup:AddToggle("AutoBlockAnimation", {
+        Text = "Auto Block (Animation)",
+        Tooltip = "auto block animation detection",
+        Default = false,
+        Callback = function(Value)
+            autoBlockOn = Value
+        end,
+    })
+
+    AutoBlockLeftGroup:AddToggle("AutoBlockAudio", {
+        Text = "Auto Block (Audio)",
+        Tooltip = "auto block audio detection",
+        Default = false,
+        Callback = function(Value)
+            autoBlockAudioOn = Value
+        end,
+    })
+
+    AutoBlockLeftGroup:AddDropdown("BlockType", {
+        Values = {"Block", "Charge", "7n7 Clone"},
+        Default = 1,
+        Multi = false,
+        Text = "Auto Block Type",
+        Tooltip = "Choose ab type",
+        Callback = function(Value)
+            autoblocktype = Value
+        end,
+    })
+
+    AutoBlockLeftGroup:AddLabel("use audio auto block and use 20 range for it")
+
+
+    AutoBlockLeftGroup:AddToggle("messageWhenBlockToggle", {
+        Text = "Message When Blocking",
+        Tooltip = "auto chat when blocking",
+        Default = false,
+        Callback = function(Value)
+            messageWhenAutoBlockOn = Value
+        end,
+    })
+
+    -- Input: Range (N)
+    AutoBlockLeftGroup:AddInput("MessageWhenBlock", {
+        Text = "The message",
+        Default = "",
+        Numeric = false,
+        ClearTextOnFocus = false,
+        Placeholder = "im gonna block ya",
+        Callback = function(Value)
+            messageWhenAutoBlock = Value
+        end,
+    })
+
+    AutoBlockLeftGroup:AddInput("BlockDelay", {
+        Text = "block delay",
+        Default = "0",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "0",
+        Callback = function(Value)
+            blockdelay = tonumber(Value) or blockdelay
+        end,
+    })
+
+    AutoBlockLeftGroup:AddLabel("face check might delay on coolkid, dont use face check agaisnt coolkid.")
+
+    AutoBlockLeftGroup:AddToggle("FacingCheckToggle", {
+        Text = "Facing Check",
+        Tooltip = "facing chekc",
+        Default = false,
+        Callback = function(Value)
+            facingCheckEnabled = Value
+        end,
+    })
+
+    AutoBlockLeftGroup:AddToggle("FacingCheckVisualToggle", {
+        Text = "Facing Check Visual",
+        Tooltip = "facing chekc visual",
+        Default = false,
+        Callback = function(Value)
+            facingVisualOn = Value
+            refreshFacingVisuals()
+        end,
+    })
+
+    AutoBlockLeftGroup:AddLabel("facing check visual not being accurate is because its just there to give u an idea of the facing check")
+
+    AutoBlockLeftGroup:AddInput("FacingChekDot", {
+        Text = "Facing Check angle (DOT)",
+        Default = "-0.3",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "-0.3",
+        Callback = function(Value)
+            customFacingDot = tonumber(Value) or customFacingDot
+        end,
+    })
+
+    AutoBlockLeftGroup:AddLabel("DOT Explanation: if for example you put it 0 you will need to be EXACTLY infront of the killer. but you can make the facing check cone larger by making it -0.3 or -0.5 if you put -1 is going to be a half circle cone infront the killer, so yeah.")
+
+    AutoBlockLeftGroup:AddInput("DetectionRange", {
+        Text = "Detection Range",
+        Default = "18",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "18",
+        Callback = function(Value)
+            detectionRange = tonumber(Value) or detectionRange
+            detectionRangeSq = detectionRange * detectionRange
+        end,
+    })
+
+    AutoBlockLeftGroup:AddToggle("DetectionRangeVisualToggle", {
+        Text = "Detection Range Visual",
+        Tooltip = "detection range visual",
+        Default = false,
+        Callback = function(Value)
+            killerCirclesVisible = Value
+            refreshKillerCircles()
+        end,
+    })
+
+    -- BDtab
+    
+    BDLeftGroup:AddLabel("BD or Better Detection delays on coolkid, use normal detection agaisnt coolkid.")
+
+    BDLeftGroup:AddToggle("AntiFlickToggle", {
+        Text = "Better Detection (doesn't use detectrange)",
+        Tooltip = "activate nd",
+        Default = false,
+        Callback = function(Value)
+            antiFlickOn = Value
+        end,
+    })
+
+    BDLeftGroup:AddInput("AntiFlickParts", {
+        Text = "How many block parts that spawn",
+        Default = "4",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "4",
+        Callback = function(Value)
+            antiFlickParts = math.max(1, math.floor(Value))
+        end,
+    })
+
+    BDLeftGroup:AddInput("BlockPartsSizeMultiplier", {
+        Text = "Block Parts Size Multiplier",
+        Default = "1",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "1",
+        Callback = function(Value)
+            blockPartsSizeMultiplier = tonumber(Value) or 1
+        end,
+    })
+
+    BDLeftGroup:AddInput("PredictionStrength", {
+        Text = "Forward Prediction Strength",
+        Default = "1",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "1",
+        Callback = function(Value)
+            predictionStrength = tonumber(Value)
+        end,
+    })
+
+    BDLeftGroup:AddInput("PredictionTurnStrength", {
+        Text = "Turn Prediction Strength",
+        Default = "1",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "1",
+        Callback = function(Value)
+            predictionTurnStrength = tonumber(Value)
+        end,
+    })
+
+    BDLeftGroup:AddInput("AntiFlickDelay", {
+        Text = "delay before the first block part spawn (seconds) (DBTFBPS)",
+        Default = "0",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "0",
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num then
+                antiFlickDelay = math.max(0, num) -- don’t allow negative
+            end
+        end,
+    })
+
+    BDLeftGroup:AddToggle("AutoAdjustDBTFBPS", {
+        Text = "Auto-adjust DBTFBPS based on killer",
+        Tooltip = "activate auto dbtfbps",
+        Default = false,
+        Callback = function(Value)
+            autoAdjustDBTFBPS = Value
+            if state then
+                -- save the current manual value so we can restore it when the toggle is off
+                _savedManualAntiFlickDelay = antiFlickDelay or 0
+                doImmediateUpdate()
+                print("Auto-DBTFBPS: enabled (saved manual antiFlickDelay = " .. tostring(_savedManualAntiFlickDelay) .. ")")
+            else
+                -- restore manual value when user disables
+                antiFlickDelay = _savedManualAntiFlickDelay
+                print("Auto-DBTFBPS: disabled -> restored antiFlickDelay = " .. tostring(antiFlickDelay))
+            end
+        end,
+    })
+
+    BDLeftGroup:AddInput("AntiFlickDelayEachParts", {
+        Text = "delay before each block parts spawns (seconds)",
+        Default = "0.02",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "0.02",
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num then
+                stagger = math.max(0, num) -- don’t allow negative
+            end
+        end,
+    })
+
+    BDLeftGroup:AddInput("AntiFlickDistanceInfront", {
+        Text = "how much studs infront killer the block parts are gonna spawn (studs)",
+        Default = "2.7",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "2.7",
+        Callback = function(Value)
+            local num = tonumber(text)
+            if num then
+                antiFlickBaseOffset = math.max(0, num) -- don’t allow negative
+            end
+        end,
+    })
+
+    TechLeftGroup:AddToggle("doubleblockTechtoggle", {
+        Text = "Double Punch Tech",
+        Tooltip = "look at the right group for info",
+        Default = false,
+        Callback = function(Value)
+            doubleblocktech = Value
+        end,
+    })
+
+    TechLeftGroup:AddToggle("HitboxDraggingToggle", {
+        Text = "Hitbox Dragging tech (HDT)",
+        Tooltip = "look at the right group for info",
+        Default = false,
+        Callback = function(Value)
+            hitboxDraggingTech = Value
+        end,
+    })
+
+    TechLeftGroup:AddInput("HDTspeed", {
+        Text = "HDT speed",
+        Default = "5.6",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "5.6",
+        Callback = function(Value)
+            Dspeed = tonumber(Value)
+        end,
+    })
+
+    TechLeftGroup:AddInput("HDTdelay", {
+        Text = "HDT delay",
+        Default = "0",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "0",
+        Callback = function(Value)
+            Ddelay = tonumber(Value)
+        end,
+    })
+
+    TechLeftGroup:AddButton("Fake Lag Tech", function()
+        pcall(function()
+            local char = lp.Character or lp.CharacterAdded:Wait()
+            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+            if not humanoid then return end
+
+            local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+
+            -- (optional) stop any identical track already playing
+            for _, t in ipairs(animator:GetPlayingAnimationTracks()) do
+                local id = tostring(t.Animation and t.Animation.AnimationId or ""):match("%d+")
+                if id == "136252471123500" then
+                    pcall(function() t:Stop() end)
+                end
+            end
+
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://136252471123500"
+            local track = animator:LoadAnimation(anim)
+            track:Play()
+        end)
+    end)
+
+
+
+    AutoBlockPredictionLeftGroup:AddToggle("predictiveABtoggle", {
+        Text = "Predictive Auto Block",
+        Tooltip = "blocks if the killer is in a range",
+        Default = false,
+        Callback = function(Value)
+            predictiveBlockOn = Value
+        end,
+    })
+
+    AutoBlockPredictionLeftGroup:AddInput("predictiveABrange", {
+        Text = "Detection Range",
+        Default = "10",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "10",
+        Callback = function(Value)
+            local vlue = tonumber(Value)
+            if vlue then
+                detectionRange = vlue
+            end
+        end,
+    })
+
+    AutoBlockPredictionLeftGroup:AddInput("edgekillerlmao", {
+        Text = "Edge Killer",
+        Default = "3",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "3",
+        Callback = function(Value)
+            local vlue = tonumber(Value)
+            if vlue then
+                edgeKillerDelay = vlue
+            end
+        end,
+    })
+
+
+    AutoPunchLeftGroup:AddToggle("AutoPunchToggle", {
+        Text = "Auto Punch",
+        Tooltip = "auto parries after block",
+        Default = false,
+        Callback = function(Value)
+            autoPunchOn = Value
+        end,
+    })
+
+    AutoPunchLeftGroup:AddToggle("MessageWhenPunchToggle", {
+        Text = "Message When Punching",
+        Tooltip = "message when you are punching",
+        Default = false,
+        Callback = function(Value)
+            messageWhenAutoPunchOn = Value
+        end,
+    })
+
+    AutoPunchLeftGroup:AddInput("MessageWhenPunchText", {
+        Text = "Message when punching",
+        Default = "",
+        Numeric = false,
+        ClearTextOnFocus = false,
+        Placeholder = "Im not gonna sugarcoat it.",
+        Callback = function(Value)
+            messageWhenAutoPunch = Value
+        end,
+    })
+
+    AutoPunchLeftGroup:AddToggle("flingpunchtoggle", {
+        Text = "Fling Punch",
+        Tooltip = "fling punch (broken)",
+        Default = false,
+        Callback = function(Value)
+            flingPunchOn = Value
+        end,
+    })
+
+    AutoPunchLeftGroup:AddToggle("PunchAimToggle", {
+        Text = "Punch Aimbot",
+        Tooltip = "aimbots to the killer when punching",
+        Default = false,
+        Callback = function(Value)
+            aimPunch = Value
+        end,
+    })
+
+
+    AutoPunchLeftGroup:AddInput("PredictionSlider", {
+        Text = "Aim Prediction",
+        Default = tostring(predictionValue),
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "4",
+        Callback = function(Value)
+            local vlue = tonumber(Value)
+            if vlue then
+                predictionValue = vlue
+            end
+        end,
+    })
+
+    AutoPunchLeftGroup:AddInput("FlingPower", {
+        Text = "Fling Power",
+        Default = "10000",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "10000",
+        Callback = function(Value)
+            local vlue = tonumber(Value)
+            if vlue then
+                flingPower = vlue
+            end
+        end,
+    })
+
+    CustomAnimLeftGroup:AddInput("customblockid", {
+        Text = "Custom Block Animation",
+        Default = "",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "AnimationId",
+        Callback = function(Value)
+            customBlockAnimId = Value
+        end,
+    })
+
+    CustomAnimLeftGroup:AddToggle("blockanimtoggle", {
+        Text = "Enable Custom Block Animation",
+        Tooltip = "self explanatory",
+        Default = false,
+        Callback = function(Value)
+            customBlockEnabled = Value
+        end,
+    })
+
+    CustomAnimLeftGroup:AddInput("customblockdelaystop", {
+        Text = "delay before stop anim (block)",
+        Default = "2",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "2",
+        Callback = function(Value)
+            local vlue = tonumber(Value)
+            if vlue then
+                customblockdelay = vlue
+            end
+        end,
+    })
+
+    CustomAnimLeftGroup:AddInput("custompunchid", {
+        Text = "Custom Punch Animation",
+        Default = "",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "AnimationId",
+        Callback = function(Value)
+            customPunchAnimId = Value
+        end,
+    })
+
+    CustomAnimLeftGroup:AddToggle("punchanimtoggle", {
+        Text = "Enable Custom Punch Animation",
+        Tooltip = "self explanatory",
+        Default = false,
+        Callback = function(Value)
+            customPunchEnabled = Value
+        end,
+    })
+
+    CustomAnimLeftGroup:AddInput("custompunchdelaystop", {
+        Text = "delay before stop anim (punch)",
+        Default = "2",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "2",
+        Callback = function(Value)
+            local vlue = tonumber(Value)
+            if vlue then
+                custompunchdelay = vlue
+            end
+        end,
+    })
+
+    CustomAnimLeftGroup:AddInput("customchargeid", {
+        Text = "Custom Charge Animation",
+        Default = "",
+        Numeric = true,
+        ClearTextOnFocus = false,
+        Placeholder = "AnimationId",
+        Callback = function(Value)
+            customChargeAnimId = Value
+        end,
+    })
+
+    CustomAnimLeftGroup:AddToggle("chargeanimtoggle", {
+        Text = "Enable Custom Charge Animation",
+        Tooltip = "self explanatory",
+        Default = false,
+        Callback = function(Value)
+            customChargeEnabled = Value
+        end,
+    })
+
+    FBLeftGroup:AddButton("Load Fake Block", function()
+        pcall(function()
+            local fakeGui = PlayerGui:FindFirstChild("FakeBlockGui")
+            if not fakeGui then
+                local success, result = pcall(function()
+                    return loadstring(game:HttpGet("https://raw.githubusercontent.com/skibidi399/Auto-block-script/refs/heads/main/fakeblock"))()
+                end)
+                if not success then
+                    warn("❌ Failed to load Fake Block GUI:", result)
+                end
+            else
+                fakeGui.Enabled = true
+                print("✅ Fake Block GUI enabled")
+            end
+        end)
+    end)
+
+    MiscLeftGroup:AddButton("Run Infinite Yield", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+    end)
+
+    MiscRightGroup:AddButton("c00lgui (custom stamina, esp, dont use on xeno) creds to owner", function()
+        loadstring(game:HttpGet("https://rawscripts.net/raw/Forsaken-c00lgui-v15-ESP-EDITABLE-STAMINA-41624"))()
+    end)
+
+    MiscRightGroup:AddToggle("controlcharge", {
+        Text = "Control Charge",
+        Tooltip = "lets you control your charge better (only works on default anim charge)",
+        Default = false,
+        Callback = function(val)
+            -- call the setter your control block exposes
+            if _G.ControlCharge_SetEnabled then
+                pcall(function() _G.ControlCharge_SetEnabled(val) end)
+            else
+                -- fallback: store desired state so the control block can pick it up if it reads _G later
+                _G.ControlCharge_WantedEnabled = val
+            end
+        end,
+    })
+
+    MiscRightGroup:AddToggle("KillerESP_Toggle", {
+        Text = "Killer ESP",
+        Tooltip = "self explanatory",
+        Default = true,
+        Callback = function(Value)
+            espEnabled = Value
+            refreshESP()
+        end,
+    })
+
+    MiscRightGroup:AddButton("Remove Slowness (only the status effect)", function()
+        game:GetService("ReplicatedStorage").Modules.StatusEffects.Slowness:Destroy()
+    end)
+
+    MiscRightGroup:AddButton("infinite resistence 100% real not fake trust", function()
+        lp:Kick("u got banned from roblxo permandnenly very real not fake trust %100")
+    end)
+
+    Options = Library.Options
+    Toggles = Library.Toggles
+end
+
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Setting", "wrench")
+
+MenuGroup:AddToggle("KeybindMenuOpen", {
+	Default = Library.KeybindFrame.Visible,
+	Text = "Open Keybind Menu",
+	Callback = function(value)
+		Library.KeybindFrame.Visible = value
+	end,
+})
+MenuGroup:AddToggle("ShowCustomCursor", {
+	Text = "Custom Cursor",
+	Default = true,
+	Callback = function(Value)
+		Library.ShowCustomCursor = Value
+	end,
+})
+MenuGroup:AddDropdown("NotificationSide", {
+	Values = { "Left", "Right" },
+	Default = "Right",
+	Text = "Notification Side",
+	Callback = function(Value)
+		Library:SetNotifySide(Value)
+	end,
+})
+MenuGroup:AddDropdown("DPIDropdown", {
+	Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
+	Default = "100%",
+
+	Text = "DPI Scale",
+
+	Callback = function(Value)
+		Value = Value:gsub("%%", "")
+		local DPI = tonumber(Value)
+
+		Library:SetDPIScale(DPI)
+	end,
+})
+MenuGroup:AddDivider()
+MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
+
+MenuGroup:AddButton("unload script", function()
+	Library:Unload()
+end)
+
+Library.ToggleKeybind = Options.MenuKeybind
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
+ThemeManager:SetFolder("autoblock")
+SaveManager:SetFolder("autoblock/games")
+SaveManager:SetSubFolder("Forsaken")
+SaveManager:BuildConfigSection(Tabs["UI Settings"])
+ThemeManager:ApplyToTab(Tabs["UI Settings"])
+SaveManager:LoadAutoloadConfig()
